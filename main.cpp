@@ -1,13 +1,3 @@
-#include <iostream>
-
-int main()
-{
-  // 1
-  std::cout << "hello" << std::endl;
-
-  return 0;
-}
-
 /*
  * Copyright 1993-2010 NVIDIA Corporation.  All rights reserved.
  *
@@ -183,7 +173,7 @@ int main(int argc, char **argv)
 #ifdef MAC
   char* flags = "-cl-fast-relaxed-math -DMAC";
 #else
-  char* flags = "-cl-fast-relaxed-math";
+  const char* flags = "-cl-fast-relaxed-math";
 #endif
   shrLog("clBuildProgram...\n");
   ciErrNum = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
