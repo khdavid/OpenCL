@@ -22,7 +22,7 @@
 #include <typeinfo>
 
 // includes, project
-#include <exception.h>
+#include <exception>
 
 //! Preprocessed command line arguments
 //! @note Lazy evaluation: The arguments are converted from strings to
@@ -357,7 +357,7 @@ CmdArgReader::getArg( const std::string& name)
 {
     if( ! self) 
     {
-        RUNTIME_EXCEPTION("CmdArgReader::getArg(): CmdArgReader not initialized.");
+        throw("CmdArgReader::getArg(): CmdArgReader not initialized.");
         return NULL;
     }
 
@@ -375,7 +375,7 @@ CmdArgReader::existArg( const std::string& name)
 {
     if( ! self) 
     {
-        RUNTIME_EXCEPTION("CmdArgReader::getArg(): CmdArgReader not initialized.");
+        throw("CmdArgReader::getArg(): CmdArgReader not initialized.");
         return false;
     }
 
@@ -463,7 +463,7 @@ CmdArgReader::getRArgc()
 {
     if( ! self) 
     {
-        RUNTIME_EXCEPTION("CmdArgReader::getRArgc(): CmdArgReader not initialized.");
+        throw ("CmdArgReader::getRArgc(): CmdArgReader not initialized.");
     }
 
     return rargc;
@@ -477,7 +477,7 @@ CmdArgReader::getRArgv()
 {
     if( ! self) 
     {
-        RUNTIME_EXCEPTION("CmdArgReader::getRArgc(): CmdArgReader not initialized.");
+        throw("CmdArgReader::getRArgc(): CmdArgReader not initialized.");
     }
 
     return rargv;

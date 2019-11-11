@@ -52,7 +52,7 @@ CmdArgReader::init( const int argc, const char** argv)
     // command line arguments 
     if (( 0 == argc) || ( 0 == argv)) 
     {
-        LOGIC_EXCEPTION( "No command line arguments given.");
+        throw( "No command line arguments given.");
     }
 
     self = new CmdArgReader();
@@ -121,7 +121,7 @@ CmdArgReader::createArgsMaps( const int argc, const char** argv) {
     std::string token;
     std::string val_str;
 
-    std::map< std::string, std::string> args;
+    std::map<std::string, std::string> args;
 
     std::string::size_type pos;
     std::string arg;
@@ -132,7 +132,7 @@ CmdArgReader::createArgsMaps( const int argc, const char** argv) {
         // check if valid command line argument: all arguments begin with - or --
         if (arg[0] != '-') 
         {
-            RUNTIME_EXCEPTION("Invalid command line argument.");
+            throw("Invalid command line argument.");
         }
 
         int numDashes = (arg[1] == '-' ? 2 : 1);
