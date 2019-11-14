@@ -21,7 +21,7 @@
     }
 
     // process 
-    int iInOffset = iGID << 2;
+    int iInOffset = iGID * 4 ;
     c[iGID] = a[iInOffset] * b[iInOffset] 
                + a[iInOffset + 1] * b[iInOffset + 1]
                + a[iInOffset + 2] * b[iInOffset + 2]

@@ -81,11 +81,6 @@ int main(int argc, char **argv)
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
     shrLog("clGetPlatformID...\n"); 
 
-    // Get the NVIDIA platform
-    ciErrNum = oclGetPlatformID(&cpPlatform);
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
-    shrLog("clGetPlatformID...\n"); 
-
     //Get all the devices
     cl_uint uiNumDevices = 0;           // Number of devices available
     cl_uint uiTargetDevice = 0;	        // Default Device to compute on
