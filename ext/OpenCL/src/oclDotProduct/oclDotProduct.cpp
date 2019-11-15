@@ -51,7 +51,7 @@ size_t szGlobalWorkSize;        // Total # of work items in the 1D range
 size_t szLocalWorkSize;		    // # of work items in the 1D work group	
 size_t szParmDataBytes;			// Byte size of context information
 size_t szKernelLength;			// Byte size of kernel code
-cl_int ciErrNum;			    // Error code var
+//cl_int ciErrNum;			    // Error code var
 char* cPathAndName = NULL;      // var for full paths to data, src, etc.
 char* cSourceCL = NULL;         // Buffer to hold source for compilation 
 const char* cExecutableName = NULL;
@@ -80,11 +80,11 @@ int main(int argc, char** argv)
   //gp_argc = &argc;
   //gp_argv = &argv;
 
-  shrQAStart(argc, argv);
+  //shrQAStart(argc, argv);
 
   // Get the NVIDIA platform
-  ciErrNum = oclGetPlatformID(&cpPlatform);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
+  auto platformId = oclGetPlatformID(&cpPlatform);
+  oclCheckErrorEX(platformId, CL_SUCCESS, NULL);
   shrLog("clGetPlatformID...\n");
 
   //Get all the devices
@@ -92,11 +92,11 @@ int main(int argc, char** argv)
   cl_uint uiTargetDevice = 0;	        // Default Device to compute on
   cl_uint uiNumComputeUnits;          // Number of compute units (SM's on NV GPU)
   shrLog("Get the Device info and select Device...\n");
-  ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
+  platformId = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
+  oclCheckErrorEX(platformId, CL_SUCCESS, NULL);
   cdDevices = (cl_device_id*)malloc(uiNumDevices * sizeof(cl_device_id));
-  ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices, NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
+  platformId = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices, NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, NULL);
 
   // Get command line device options and config accordingly
   shrLog("  # of Devices Available = %u\n", uiNumDevices);
@@ -106,8 +106,8 @@ int main(int argc, char** argv)
   }
   shrLog("  Using Device %u: ", uiTargetDevice);
   oclPrintDevName(LOGBOTH, cdDevices[uiTargetDevice]);
-  ciErrNum = clGetDeviceInfo(cdDevices[uiTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uiNumComputeUnits), &uiNumComputeUnits, NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, NULL);
+  platformId = clGetDeviceInfo(cdDevices[uiTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uiNumComputeUnits), &uiNumComputeUnits, NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, NULL);
   shrLog("\n  # of Compute Units = %u\n", uiNumComputeUnits);
 
   // get command line arg for quick test, if provided
@@ -134,30 +134,30 @@ int main(int argc, char** argv)
   shrFillArray((float*)srcB, 4 * iNumElements);
 
   // Get the NVIDIA platform
-  ciErrNum = oclGetPlatformID(&cpPlatform);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = oclGetPlatformID(&cpPlatform);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Get a GPU device
-  ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 1, &cdDevices[uiTargetDevice], NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 1, &cdDevices[uiTargetDevice], NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Create the context
-  cxGPUContext = clCreateContext(0, 1, &cdDevices[uiTargetDevice], NULL, NULL, &ciErrNum);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  cxGPUContext = clCreateContext(0, 1, &cdDevices[uiTargetDevice], NULL, NULL, &platformId);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Create a command-queue
   shrLog("clCreateCommandQueue...\n");
-  cqCommandQueue = clCreateCommandQueue(cxGPUContext, cdDevices[uiTargetDevice], 0, &ciErrNum);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  cqCommandQueue = clCreateCommandQueue(cxGPUContext, cdDevices[uiTargetDevice], 0, &platformId);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
   shrLog("clCreateBuffer (SrcA, SrcB and Dst in Device GMEM)...\n");
-  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &ciErrNum);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
-  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &ciErrNum);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
-  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * szGlobalWorkSize, NULL, &ciErrNum);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &platformId);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
+  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &platformId);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
+  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * szGlobalWorkSize, NULL, &platformId);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Read the OpenCL kernel in from source file
   shrLog("oclLoadProgSource (%s)...\n", cSourceFile);
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 
   // Create the program
   shrLog("clCreateProgramWithSource...\n");
-  cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char**)& cSourceCL, &szKernelLength, &ciErrNum);
+  cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char**)& cSourceCL, &szKernelLength, &platformId);
 
   // Build the program with 'mad' Optimization option
 #ifdef MAC
@@ -177,11 +177,11 @@ int main(int argc, char** argv)
   char* flags = "-cl-fast-relaxed-math";
 #endif
   shrLog("clBuildProgram...\n");
-  ciErrNum = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
-  if (ciErrNum != CL_SUCCESS)
+  platformId = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
+  if (platformId != CL_SUCCESS)
   {
     // write out standard error, Build Log and PTX, then cleanup and exit
-    shrLogEx(LOGBOTH | ERRORMSG, ciErrNum, STDERROR);
+    shrLogEx(LOGBOTH | ERRORMSG, platformId, STDERROR);
     oclLogBuildInfo(cpProgram, oclGetFirstDev(cxGPUContext));
     oclLogPtx(cpProgram, oclGetFirstDev(cxGPUContext), "oclDotProduct.ptx");
     Cleanup(EXIT_FAILURE);
@@ -189,34 +189,34 @@ int main(int argc, char** argv)
 
   // Create the kernel
   shrLog("clCreateKernel (DotProduct)...\n");
-  ckKernel = clCreateKernel(cpProgram, "DotProduct", &ciErrNum);
+  ckKernel = clCreateKernel(cpProgram, "DotProduct", &platformId);
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
-  ciErrNum = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
-  ciErrNum |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
-  ciErrNum |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
-  ciErrNum |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& iNumElements);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
+  platformId |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
+  platformId |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
+  platformId |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& iNumElements);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // --------------------------------------------------------
   // Core sequence... copy input data to GPU, compute, copy results back
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcA, 0, NULL, NULL);
-  ciErrNum |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcB, 0, NULL, NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcA, 0, NULL, NULL);
+  platformId |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcB, 0, NULL, NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  ciErrNum = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  ciErrNum = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
-  oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+  platformId = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
+  oclCheckErrorEX(platformId, CL_SUCCESS, pCleanup);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 
 
 
-
+/*
 int main2(int argc, char **argv)
 {
     gp_argc = &argc;
@@ -387,7 +387,7 @@ int main2(int argc, char **argv)
     // Cleanup and leave
     Cleanup (EXIT_SUCCESS);
     return 0;
-}
+}*/
 
 // "Golden" Host processing dot product function for comparison purposes
 // *********************************************************************
