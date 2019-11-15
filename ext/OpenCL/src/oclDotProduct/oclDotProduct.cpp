@@ -1,28 +1,3 @@
-/*
- * Copyright 1993-2010 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
-// *********************************************************************
-// oclDotProduct Notes:  
-//
-// A simple OpenCL API demo application that implements a
-// vector dot product computation between 2 float arrays. 
-//
-// Runs computations with OpenCL on the GPU device and then checks results 
-// against basic host CPU/C++ computation.
-//
-// Uses 'shr' and 'ocl' functions from oclUtils and shrUtils libraries for compactness. 
-// But these are NOT required libs for OpenCL developement in general.
-// *********************************************************************
-
-// standard utilities and systems includes
 #include <string>
 #include <oclUtils.h>
 #include <shrQATest.h>
@@ -35,8 +10,8 @@ const char* cSourceFile = "DotProduct.cl";
 
 // Host buffers for demo
 // *********************************************************************
-void *srcA, *srcB, *dst;        // Host buffers for OpenCL test
-void* Golden;                   // Host buffer for host golden processing cross check
+//void *srcB, *dst;        // Host buffers for OpenCL test
+//void* Golden;                   // Host buffer for host golden processing cross check
 
 // OpenCL Vars
 //cl_platform_id cpPlatform;      // OpenCL platform
@@ -95,26 +70,26 @@ int main(int argc, char** argv)
   std::cout << "Using Device %u: " << cTargetDevice << std::endl;
   oclPrintDevName(LOGBOTH, devices[cTargetDevice]);
 
-  reportInt(devices[cTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, "# of Compute Units = ");
+  reportInt(devices[cTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
 
   // start logs
   const int cNumElements = 1277944;	    // Length of float arrays to process (odd # for illustration)
   shrLog("Starting...\n\n# of float elements per Array \t= %u\n", cNumElements);
 
   // set and log Global and Local work size dimensions
-  const size_t szLocalWorkSize = 256;
-  const auto szGlobalWorkSize = shrRoundUp((int)szLocalWorkSize, cNumElements);  // rounded up to the nearest multiple of the LocalWorkSize
+  const size_t localWorkSize = 256;
+  const auto globalWorkSize = shrRoundUp((int)localWorkSize, cNumElements);  // rounded up to the nearest multiple of the LocalWorkSize
   shrLog("Global Work Size \t\t= %u\nLocal Work Size \t\t= %u\n# of Work Groups \t\t= %u\n\n",
-    szGlobalWorkSize, szLocalWorkSize, (szGlobalWorkSize % szLocalWorkSize + szGlobalWorkSize / szLocalWorkSize));
+    globalWorkSize, localWorkSize, (globalWorkSize % localWorkSize + globalWorkSize / localWorkSize));
 
   // Allocate and initialize host arrays
   shrLog("Allocate and Init Host Mem...\n");
-  srcA = (void*)malloc(sizeof(cl_float4) * szGlobalWorkSize);
-  srcB = (void*)malloc(sizeof(cl_float4) * szGlobalWorkSize);
-  dst = (void*)malloc(sizeof(cl_float) * szGlobalWorkSize);
-  Golden = (void*)malloc(sizeof(cl_float) * cNumElements);
-  shrFillArray((float*)srcA, 4 * cNumElements);
-  shrFillArray((float*)srcB, 4 * cNumElements);
+  std::vector<cl_float4> srcA(globalWorkSize);
+  std::vector<cl_float4> srcB(globalWorkSize);
+  std::vector<cl_float> dst(globalWorkSize);
+  std::vector<cl_float> Golden(cNumElements);
+  shrFillArray((float*)srcA.data(), 4 * cNumElements);
+  shrFillArray((float*)srcB.data(), 4 * cNumElements);
 
   // Get the NVIDIA platform
   feedback = oclGetPlatformID(&platformId);
@@ -135,11 +110,11 @@ int main(int argc, char** argv)
 
   // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
   shrLog("clCreateBuffer (SrcA, SrcB and Dst in Device GMEM)...\n");
-  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &feedback);
+  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &feedback);
+  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * szGlobalWorkSize, NULL, &feedback);
+  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read the OpenCL kernel in from source file
@@ -187,24 +162,24 @@ int main(int argc, char** argv)
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  feedback = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcA, 0, NULL, NULL);
-  feedback |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcB, 0, NULL, NULL);
+  feedback = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, NULL, NULL);
+  feedback |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
+  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  feedback = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
+  feedback = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
-  DotProductHost((const float*)srcA, (const float*)srcB, (float*)Golden, cNumElements);
-  shrBOOL bMatch = shrComparefet((const float*)Golden, (const float*)dst, (unsigned int)cNumElements, 0.0f, 0);
+  DotProductHost((const float*)srcA.data(), (const float*)srcB.data(), (float*)Golden.data(), cNumElements);
+  shrBOOL bMatch = shrComparefet((const float*)Golden.data(), (const float*)dst.data(), (unsigned int)cNumElements, 0.0f, 0);
   std::cout << std::boolalpha;
   std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
@@ -403,11 +378,6 @@ void Cleanup(int iExitCode)
     if (cmDevSrcB)clReleaseMemObject(cmDevSrcB);
     if (cmDevDst)clReleaseMemObject(cmDevDst);
 
-    // Free host memory
-    free(srcA); 
-    free(srcB);
-    free (dst);
-    free(Golden);
 
     //if (cdDevices) free(cdDevices);
 
