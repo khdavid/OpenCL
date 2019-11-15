@@ -68,39 +68,34 @@ void (*pCleanup)(int) = &Cleanup;
 int *gp_argc = NULL;
 char ***gp_argv = NULL;
 
-std::string const BoolToString(bool b)
+void reportInt(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
 {
-  return b ? "true" : "false";
+  cl_uint info;    
+  clGetDeviceInfo(deviceId, deviceInfoConstant, sizeof(info), &info, nullptr);
+  std::cout << msg << info << std::endl;
 }
-// Main function 
+
 // *********************************************************************
 int main(int argc, char** argv)
 {
   // Get the NVIDIA platform
-  cl_platform_id cpPlatform;      // OpenCL platform
-  auto clFeedback = oclGetPlatformID(&cpPlatform);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, NULL);
-  std::cout << "clGetPlatformID...\n";
+  cl_platform_id platformId;      // OpenCL platform
+  auto feedback = oclGetPlatformID(&platformId);
+  std::cout << "clGetPlatformID...\n" << std::endl;
   //Get all the devices
-  cl_uint uiNumDevices = 0;           // Number of devices available
-  shrLog("Get the Device info and select Device...\n");
-  clFeedback = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, NULL);
-  std::vector<cl_device_id> cdDevices(uiNumDevices);      // OpenCL device
-  clFeedback = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices.data(), NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, NULL);
+  cl_uint numDevices = 0;           // Number of devices available
+  std::cout << "Get the Device info and select Device..." << std::endl;
+  feedback = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+  std::vector<cl_device_id> devices(numDevices);      // OpenCL device
+  clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), NULL);
 
   // Get command line device options and config accordingly
-  shrLog("  # of Devices Available = %u\n", uiNumDevices);
-  cl_uint uiTargetDevice = 0;	        // Default Device to compute on
-  shrLog("  Using Device %u: ", uiTargetDevice);
-  oclPrintDevName(LOGBOTH, cdDevices[uiTargetDevice]);
-  cl_uint uiNumComputeUnits;          // Number of compute units (SM's on NV GPU)
-  clFeedback = clGetDeviceInfo(cdDevices[uiTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uiNumComputeUnits), &uiNumComputeUnits, NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, NULL);
-  shrLog("\n  # of Compute Units = %u\n", uiNumComputeUnits);
+  std::cout << "# of Devices Available = " << numDevices << std::endl;
+  const cl_uint cTargetDevice = 0;	        // Default Device to compute on
+  std::cout << "Using Device %u: " << cTargetDevice << std::endl;
+  oclPrintDevName(LOGBOTH, devices[cTargetDevice]);
 
+  reportInt(devices[cTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, "# of Compute Units = ");
 
   // start logs
   const int cNumElements = 1277944;	    // Length of float arrays to process (odd # for illustration)
@@ -122,30 +117,30 @@ int main(int argc, char** argv)
   shrFillArray((float*)srcB, 4 * cNumElements);
 
   // Get the NVIDIA platform
-  clFeedback = oclGetPlatformID(&cpPlatform);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = oclGetPlatformID(&platformId);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Get a GPU device
-  clFeedback = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 1, &cdDevices[uiTargetDevice], NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 1, &devices[cTargetDevice], NULL);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Create the context
-  cxGPUContext = clCreateContext(0, 1, &cdDevices[uiTargetDevice], NULL, NULL, &clFeedback);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  cxGPUContext = clCreateContext(0, 1, &devices[cTargetDevice], NULL, NULL, &feedback);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Create a command-queue
   shrLog("clCreateCommandQueue...\n");
-  cqCommandQueue = clCreateCommandQueue(cxGPUContext, cdDevices[uiTargetDevice], 0, &clFeedback);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  cqCommandQueue = clCreateCommandQueue(cxGPUContext, devices[cTargetDevice], 0, &feedback);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
   shrLog("clCreateBuffer (SrcA, SrcB and Dst in Device GMEM)...\n");
-  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &clFeedback);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
-  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &clFeedback);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
-  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * szGlobalWorkSize, NULL, &clFeedback);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &feedback);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * szGlobalWorkSize * 4, NULL, &feedback);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * szGlobalWorkSize, NULL, &feedback);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read the OpenCL kernel in from source file
   shrLog("oclLoadProgSource (%s)...\n", cSourceFile);
@@ -156,7 +151,7 @@ int main(int argc, char** argv)
 
   // Create the program
   shrLog("clCreateProgramWithSource...\n");
-  cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char**)& cSourceCL, &szKernelLength, &clFeedback);
+  cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char**)& cSourceCL, &szKernelLength, &feedback);
 
   // Build the program with 'mad' Optimization option
 #ifdef MAC
@@ -165,11 +160,11 @@ int main(int argc, char** argv)
   char* flags = "-cl-fast-relaxed-math";
 #endif
   shrLog("clBuildProgram...\n");
-  clFeedback = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
-  if (clFeedback != CL_SUCCESS)
+  feedback = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
+  if (feedback != CL_SUCCESS)
   {
     // write out standard error, Build Log and PTX, then cleanup and exit
-    shrLogEx(LOGBOTH | ERRORMSG, clFeedback, STDERROR);
+    shrLogEx(LOGBOTH | ERRORMSG, feedback, STDERROR);
     oclLogBuildInfo(cpProgram, oclGetFirstDev(cxGPUContext));
     oclLogPtx(cpProgram, oclGetFirstDev(cxGPUContext), "oclDotProduct.ptx");
     Cleanup(EXIT_FAILURE);
@@ -177,34 +172,34 @@ int main(int argc, char** argv)
 
   // Create the kernel
   shrLog("clCreateKernel (DotProduct)...\n");
-  ckKernel = clCreateKernel(cpProgram, "DotProduct", &clFeedback);
+  ckKernel = clCreateKernel(cpProgram, "DotProduct", &feedback);
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
-  clFeedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
-  clFeedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
-  clFeedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
-  clFeedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& cNumElements);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
+  feedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
+  feedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
+  feedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& cNumElements);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // --------------------------------------------------------
   // Core sequence... copy input data to GPU, compute, copy results back
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  clFeedback = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcA, 0, NULL, NULL);
-  clFeedback |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcB, 0, NULL, NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcA, 0, NULL, NULL);
+  feedback |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * szGlobalWorkSize * 4, srcB, 0, NULL, NULL);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  clFeedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  clFeedback = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
-  oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
+  feedback = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
+  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");

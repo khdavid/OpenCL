@@ -96,7 +96,7 @@ void oclPrintDevName(int iLogMode, cl_device_id device)
 {
     char device_string[1024];
     clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_string), &device_string, NULL);
-    shrLogEx(iLogMode, 0, "%s", device_string);
+    shrLogEx(iLogMode, 0, "%s\n", device_string);
 }
 
 //////////////////////////////////////////////////////////////////////////////
