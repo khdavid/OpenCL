@@ -48,17 +48,15 @@ cl_kernel ckKernel;             // OpenCL kernel
 cl_mem cmDevSrcA;               // OpenCL device source buffer A
 cl_mem cmDevSrcB;               // OpenCL device source buffer B 
 cl_mem cmDevDst;                // OpenCL device destination buffer 
-size_t szGlobalWorkSize;        // Total # of work items in the 1D range
-size_t szLocalWorkSize;		    // # of work items in the 1D work group	
+//size_t szGlobalWorkSize;        // Total # of work items in the 1D range
+//size_t szLocalWorkSize;		    // # of work items in the 1D work group	
 size_t szParmDataBytes;			// Byte size of context information
 size_t szKernelLength;			// Byte size of kernel code
 //cl_int ciErrNum;			    // Error code var
 char* cPathAndName = NULL;      // var for full paths to data, src, etc.
 char* cSourceCL = NULL;         // Buffer to hold source for compilation 
-const char* cExecutableName = NULL;
+//const char* cExecutableName = NULL;
 
-// demo config vars
-int iNumElements= 1277944;	    // Length of float arrays to process (odd # for illustration)
 //shrBOOL bNoPrompt = shrFALSE;  
 
 // Forward Declarations
@@ -105,13 +103,12 @@ int main(int argc, char** argv)
 
 
   // start logs
-  cExecutableName = argv[0];
-  shrSetLogFileName("oclDotProduct.txt");
-  shrLog("%s Starting...\n\n# of float elements per Array \t= %u\n", argv[0], iNumElements);
+  const int cNumElements = 1277944;	    // Length of float arrays to process (odd # for illustration)
+  shrLog("Starting...\n\n# of float elements per Array \t= %u\n", cNumElements);
 
   // set and log Global and Local work size dimensions
-  szLocalWorkSize = 256;
-  szGlobalWorkSize = shrRoundUp((int)szLocalWorkSize, iNumElements);  // rounded up to the nearest multiple of the LocalWorkSize
+  const size_t szLocalWorkSize = 256;
+  const auto szGlobalWorkSize = shrRoundUp((int)szLocalWorkSize, cNumElements);  // rounded up to the nearest multiple of the LocalWorkSize
   shrLog("Global Work Size \t\t= %u\nLocal Work Size \t\t= %u\n# of Work Groups \t\t= %u\n\n",
     szGlobalWorkSize, szLocalWorkSize, (szGlobalWorkSize % szLocalWorkSize + szGlobalWorkSize / szLocalWorkSize));
 
@@ -120,9 +117,9 @@ int main(int argc, char** argv)
   srcA = (void*)malloc(sizeof(cl_float4) * szGlobalWorkSize);
   srcB = (void*)malloc(sizeof(cl_float4) * szGlobalWorkSize);
   dst = (void*)malloc(sizeof(cl_float) * szGlobalWorkSize);
-  Golden = (void*)malloc(sizeof(cl_float) * iNumElements);
-  shrFillArray((float*)srcA, 4 * iNumElements);
-  shrFillArray((float*)srcB, 4 * iNumElements);
+  Golden = (void*)malloc(sizeof(cl_float) * cNumElements);
+  shrFillArray((float*)srcA, 4 * cNumElements);
+  shrFillArray((float*)srcB, 4 * cNumElements);
 
   // Get the NVIDIA platform
   clFeedback = oclGetPlatformID(&cpPlatform);
@@ -187,7 +184,7 @@ int main(int argc, char** argv)
   clFeedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
   clFeedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
   clFeedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
-  clFeedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& iNumElements);
+  clFeedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& cNumElements);
   oclCheckErrorEX(clFeedback, CL_SUCCESS, pCleanup);
 
   // --------------------------------------------------------
@@ -211,8 +208,8 @@ int main(int argc, char** argv)
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
-  DotProductHost((const float*)srcA, (const float*)srcB, (float*)Golden, iNumElements);
-  shrBOOL bMatch = shrComparefet((const float*)Golden, (const float*)dst, (unsigned int)iNumElements, 0.0f, 0);
+  DotProductHost((const float*)srcA, (const float*)srcB, (float*)Golden, cNumElements);
+  shrBOOL bMatch = shrComparefet((const float*)Golden, (const float*)dst, (unsigned int)cNumElements, 0.0f, 0);
   std::cout << std::boolalpha;
   std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
