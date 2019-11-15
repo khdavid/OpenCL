@@ -40,8 +40,6 @@ void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult,
 void Cleanup (int iExitCode);
 void (*pCleanup)(int) = &Cleanup;
 
-int *gp_argc = NULL;
-char ***gp_argv = NULL;
 
 void reportInt(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
 {
@@ -56,56 +54,48 @@ int main(int argc, char** argv)
   // Get the NVIDIA platform
   cl_platform_id platformId;      // OpenCL platform
   auto feedback = oclGetPlatformID(&platformId);
-  std::cout << "clGetPlatformID...\n" << std::endl;
+  std::cout << "PlatformID = " << platformId << std::endl;
   //Get all the devices
   cl_uint numDevices = 0;           // Number of devices available
   std::cout << "Get the Device info and select Device..." << std::endl;
-  feedback = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+  clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 0, nullptr, &numDevices);
   std::vector<cl_device_id> devices(numDevices);      // OpenCL device
-  clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), NULL);
+  clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), nullptr);
 
   // Get command line device options and config accordingly
   std::cout << "# of Devices Available = " << numDevices << std::endl;
-  const cl_uint cTargetDevice = 0;	        // Default Device to compute on
-  std::cout << "Using Device %u: " << cTargetDevice << std::endl;
-  oclPrintDevName(LOGBOTH, devices[cTargetDevice]);
+  const cl_uint TARGET_DEVICE = 0;	        // Default Device to compute on
+  std::cout << "Using Device %u: " << TARGET_DEVICE << std::endl;
+  oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
 
-  reportInt(devices[cTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
+  reportInt(devices[TARGET_DEVICE], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
 
   // start logs
-  const int cNumElements = 1277944;	    // Length of float arrays to process (odd # for illustration)
-  shrLog("Starting...\n\n# of float elements per Array \t= %u\n", cNumElements);
+  const int NUM_ELEMENTS = 1277944;	    // Length of float arrays to process (odd # for illustration)
+  shrLog("Starting...\n\n# of float elements per Array \t= %u\n", NUM_ELEMENTS);
 
   // set and log Global and Local work size dimensions
-  const size_t localWorkSize = 256;
-  const auto globalWorkSize = shrRoundUp((int)localWorkSize, cNumElements);  // rounded up to the nearest multiple of the LocalWorkSize
+  const size_t LOCAL_WORK_SIZE = 256;
+  const auto globalWorkSize = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
   shrLog("Global Work Size \t\t= %u\nLocal Work Size \t\t= %u\n# of Work Groups \t\t= %u\n\n",
-    globalWorkSize, localWorkSize, (globalWorkSize % localWorkSize + globalWorkSize / localWorkSize));
+    globalWorkSize, LOCAL_WORK_SIZE, (globalWorkSize % LOCAL_WORK_SIZE + globalWorkSize / LOCAL_WORK_SIZE));
 
   // Allocate and initialize host arrays
   shrLog("Allocate and Init Host Mem...\n");
   std::vector<cl_float4> srcA(globalWorkSize);
   std::vector<cl_float4> srcB(globalWorkSize);
   std::vector<cl_float> dst(globalWorkSize);
-  std::vector<cl_float> Golden(cNumElements);
-  shrFillArray((float*)srcA.data(), 4 * cNumElements);
-  shrFillArray((float*)srcB.data(), 4 * cNumElements);
-
-  // Get the NVIDIA platform
-  feedback = oclGetPlatformID(&platformId);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-
-  // Get a GPU device
-  feedback = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 1, &devices[cTargetDevice], NULL);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  std::vector<cl_float> Golden(NUM_ELEMENTS);
+  shrFillArray((float*)srcA.data(), 4 * NUM_ELEMENTS);
+  shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
 
   // Create the context
-  cxGPUContext = clCreateContext(0, 1, &devices[cTargetDevice], NULL, NULL, &feedback);
+  cxGPUContext = clCreateContext(0, 1, &devices[TARGET_DEVICE], NULL, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Create a command-queue
   shrLog("clCreateCommandQueue...\n");
-  cqCommandQueue = clCreateCommandQueue(cxGPUContext, devices[cTargetDevice], 0, &feedback);
+  cqCommandQueue = clCreateCommandQueue(cxGPUContext, devices[TARGET_DEVICE], 0, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
@@ -154,7 +144,7 @@ int main(int argc, char** argv)
   feedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
   feedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
   feedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
-  feedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& cNumElements);
+  feedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // --------------------------------------------------------
@@ -168,7 +158,7 @@ int main(int argc, char** argv)
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, NULL);
+  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &globalWorkSize, &LOCAL_WORK_SIZE, 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
@@ -178,8 +168,8 @@ int main(int argc, char** argv)
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
-  DotProductHost((const float*)srcA.data(), (const float*)srcB.data(), (float*)Golden.data(), cNumElements);
-  shrBOOL bMatch = shrComparefet((const float*)Golden.data(), (const float*)dst.data(), (unsigned int)cNumElements, 0.0f, 0);
+  DotProductHost((const float*)srcA.data(), (const float*)srcB.data(), (float*)Golden.data(), NUM_ELEMENTS);
+  shrBOOL bMatch = shrComparefet((const float*)Golden.data(), (const float*)dst.data(), (unsigned int)NUM_ELEMENTS, 0.0f, 0);
   std::cout << std::boolalpha;
   std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
