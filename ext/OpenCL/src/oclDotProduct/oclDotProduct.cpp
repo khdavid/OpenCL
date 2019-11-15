@@ -16,7 +16,7 @@ const char* cSourceFile = "DotProduct.cl";
 // OpenCL Vars
 //cl_platform_id cpPlatform;      // OpenCL platform
 //cl_device_id   *cdDevices;      // OpenCL device
-cl_context cxGPUContext;        // OpenCL context
+//cl_context cxGPUContext;        // OpenCL context
 cl_command_queue cqCommandQueue;// OpenCL command que
 cl_program cpProgram;           // OpenCL program
 cl_kernel ckKernel;             // OpenCL kernel
@@ -90,21 +90,20 @@ int main(int argc, char** argv)
   shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
 
   // Create the context
-  cxGPUContext = clCreateContext(0, 1, &devices[TARGET_DEVICE], NULL, NULL, &feedback);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  auto gpuContext = clCreateContext(nullptr, 1, &devices[TARGET_DEVICE], nullptr, nullptr, nullptr);
 
   // Create a command-queue
   shrLog("clCreateCommandQueue...\n");
-  cqCommandQueue = clCreateCommandQueue(cxGPUContext, devices[TARGET_DEVICE], 0, &feedback);
+  cqCommandQueue = clCreateCommandQueue(gpuContext, devices[TARGET_DEVICE], 0, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
   shrLog("clCreateBuffer (SrcA, SrcB and Dst in Device GMEM)...\n");
-  cmDevSrcA = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
+  cmDevSrcA = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevSrcB = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
+  cmDevSrcB = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevDst = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, NULL, &feedback);
+  cmDevDst = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, NULL, &feedback);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read the OpenCL kernel in from source file
@@ -116,7 +115,7 @@ int main(int argc, char** argv)
 
   // Create the program
   shrLog("clCreateProgramWithSource...\n");
-  cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char**)& cSourceCL, &szKernelLength, &feedback);
+  cpProgram = clCreateProgramWithSource(gpuContext, 1, (const char**)& cSourceCL, &szKernelLength, &feedback);
 
   // Build the program with 'mad' Optimization option
 #ifdef MAC
@@ -130,8 +129,8 @@ int main(int argc, char** argv)
   {
     // write out standard error, Build Log and PTX, then cleanup and exit
     shrLogEx(LOGBOTH | ERRORMSG, feedback, STDERROR);
-    oclLogBuildInfo(cpProgram, oclGetFirstDev(cxGPUContext));
-    oclLogPtx(cpProgram, oclGetFirstDev(cxGPUContext), "oclDotProduct.ptx");
+    oclLogBuildInfo(cpProgram, oclGetFirstDev(gpuContext));
+    oclLogPtx(cpProgram, oclGetFirstDev(gpuContext), "oclDotProduct.ptx");
     Cleanup(EXIT_FAILURE);
   }
 
@@ -174,7 +173,7 @@ int main(int argc, char** argv)
   std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
   // Cleanup and leave
-  Cleanup(EXIT_SUCCESS);
+  if (gpuContext) clReleaseContext(gpuContext);
   return 0;
 }
 
@@ -363,7 +362,6 @@ void Cleanup(int iExitCode)
 	if(ckKernel)clReleaseKernel(ckKernel);  
     if(cpProgram)clReleaseProgram(cpProgram);
     if(cqCommandQueue)clReleaseCommandQueue(cqCommandQueue);
-    if(cxGPUContext)clReleaseContext(cxGPUContext);
     if (cmDevSrcA)clReleaseMemObject(cmDevSrcA);
     if (cmDevSrcB)clReleaseMemObject(cmDevSrcB);
     if (cmDevDst)clReleaseMemObject(cmDevDst);
