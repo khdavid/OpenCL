@@ -92,11 +92,10 @@ int main(int argc, char** argv)
   auto gpuContext = clCreateContext(nullptr, 1, &devices[TARGET_DEVICE], nullptr, nullptr, nullptr);
   auto commandQueue = clCreateCommandQueue(gpuContext, devices[TARGET_DEVICE], 0, nullptr);
 
-  auto srcABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, nullptr, nullptr);
-  auto srcBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, nullptr, nullptr);
+  auto srcABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
+  auto srcBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
   auto dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
 
-  // Read the OpenCL kernel in from source file
   shrLog("oclLoadProgSource (%s)...\n", cSourceFile);
   cPathAndName = shrFindFilePath(cSourceFile, argv[0]);
   oclCheckErrorEX(cPathAndName != NULL, shrTRUE, pCleanup);
