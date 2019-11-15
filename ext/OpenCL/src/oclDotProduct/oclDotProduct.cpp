@@ -17,12 +17,12 @@ const char* cSourceFile = "DotProduct.cl";
 //cl_platform_id cpPlatform;      // OpenCL platform
 //cl_device_id   *cdDevices;      // OpenCL device
 //cl_context cxGPUContext;        // OpenCL context
-cl_command_queue cqCommandQueue;// OpenCL command que
+//cl_command_queue commandQueue;// OpenCL command que
 cl_program cpProgram;           // OpenCL program
 cl_kernel ckKernel;             // OpenCL kernel
-cl_mem cmDevSrcA;               // OpenCL device source buffer A
-cl_mem cmDevSrcB;               // OpenCL device source buffer B 
-cl_mem cmDevDst;                // OpenCL device destination buffer 
+//cl_mem cmDevSrcA;               // OpenCL device source buffer A
+//cl_mem cmDevSrcB;               // OpenCL device source buffer B 
+//cl_mem cmDevDst;                // OpenCL device destination buffer 
 //size_t szGlobalWorkSize;        // Total # of work items in the 1D range
 //size_t szLocalWorkSize;		    // # of work items in the 1D work group	
 size_t szParmDataBytes;			// Byte size of context information
@@ -89,22 +89,12 @@ int main(int argc, char** argv)
   shrFillArray((float*)srcA.data(), 4 * NUM_ELEMENTS);
   shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
 
-  // Create the context
   auto gpuContext = clCreateContext(nullptr, 1, &devices[TARGET_DEVICE], nullptr, nullptr, nullptr);
+  auto commandQueue = clCreateCommandQueue(gpuContext, devices[TARGET_DEVICE], 0, nullptr);
 
-  // Create a command-queue
-  shrLog("clCreateCommandQueue...\n");
-  cqCommandQueue = clCreateCommandQueue(gpuContext, devices[TARGET_DEVICE], 0, &feedback);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-
-  // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
-  shrLog("clCreateBuffer (SrcA, SrcB and Dst in Device GMEM)...\n");
-  cmDevSrcA = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevSrcB = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, NULL, &feedback);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
-  cmDevDst = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, NULL, &feedback);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  auto srcABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, nullptr, nullptr);
+  auto srcBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float) * globalWorkSize * 4, nullptr, nullptr);
+  auto dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
 
   // Read the OpenCL kernel in from source file
   shrLog("oclLoadProgSource (%s)...\n", cSourceFile);
@@ -140,9 +130,9 @@ int main(int argc, char** argv)
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
-  feedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& cmDevSrcA);
-  feedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& cmDevSrcB);
-  feedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& cmDevDst);
+  feedback = clSetKernelArg(ckKernel, 0, sizeof(cl_mem), (void*)& srcABuffer);
+  feedback |= clSetKernelArg(ckKernel, 1, sizeof(cl_mem), (void*)& srcBBuffer);
+  feedback |= clSetKernelArg(ckKernel, 2, sizeof(cl_mem), (void*)& dstBuffer);
   feedback |= clSetKernelArg(ckKernel, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
@@ -151,18 +141,18 @@ int main(int argc, char** argv)
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  feedback = clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcA, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, NULL, NULL);
-  feedback |= clEnqueueWriteBuffer(cqCommandQueue, cmDevSrcB, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, NULL, NULL);
+  feedback = clEnqueueWriteBuffer(commandQueue, srcABuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, NULL, NULL);
+  feedback |= clEnqueueWriteBuffer(commandQueue, srcBBuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  feedback = clEnqueueNDRangeKernel(cqCommandQueue, ckKernel, 1, NULL, &globalWorkSize, &LOCAL_WORK_SIZE, 0, NULL, NULL);
+  feedback = clEnqueueNDRangeKernel(commandQueue, ckKernel, 1, NULL, &globalWorkSize, &LOCAL_WORK_SIZE, 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  feedback = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, NULL, NULL);
+  feedback = clEnqueueReadBuffer(commandQueue, dstBuffer, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, NULL, NULL);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Compute and compare results for golden-host and report errors and pass/fail
@@ -173,7 +163,12 @@ int main(int argc, char** argv)
   std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
   // Cleanup and leave
+  if (srcABuffer) clReleaseMemObject(srcABuffer);
+  if (srcBBuffer) clReleaseMemObject(srcBBuffer);
+  if (dstBuffer) clReleaseMemObject(dstBuffer);
+  if (commandQueue) clReleaseCommandQueue(commandQueue);
   if (gpuContext) clReleaseContext(gpuContext);
+
   return 0;
 }
 
@@ -361,10 +356,6 @@ void Cleanup(int iExitCode)
     if(cSourceCL)free(cSourceCL);
 	if(ckKernel)clReleaseKernel(ckKernel);  
     if(cpProgram)clReleaseProgram(cpProgram);
-    if(cqCommandQueue)clReleaseCommandQueue(cqCommandQueue);
-    if (cmDevSrcA)clReleaseMemObject(cmDevSrcA);
-    if (cmDevSrcB)clReleaseMemObject(cmDevSrcB);
-    if (cmDevDst)clReleaseMemObject(cmDevDst);
 
 
     //if (cdDevices) free(cdDevices);
