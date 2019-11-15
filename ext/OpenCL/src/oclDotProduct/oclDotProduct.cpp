@@ -59,7 +59,7 @@ const char* cExecutableName = NULL;
 
 // demo config vars
 int iNumElements= 1277944;	    // Length of float arrays to process (odd # for illustration)
-shrBOOL bNoPrompt = shrFALSE;  
+//shrBOOL bNoPrompt = shrFALSE;  
 
 // Forward Declarations
 // *********************************************************************
@@ -96,10 +96,6 @@ int main(int argc, char** argv)
   // Get command line device options and config accordingly
   shrLog("  # of Devices Available = %u\n", uiNumDevices);
   cl_uint uiTargetDevice = 0;	        // Default Device to compute on
-  if (shrGetCmdLineArgumentu(argc, (const char**)argv, "device", &uiTargetDevice) == shrTRUE)
-  {
-    uiTargetDevice = CLAMP(uiTargetDevice, 0, (uiNumDevices - 1));
-  }
   shrLog("  Using Device %u: ", uiTargetDevice);
   oclPrintDevName(LOGBOTH, cdDevices[uiTargetDevice]);
   cl_uint uiNumComputeUnits;          // Number of compute units (SM's on NV GPU)
@@ -107,8 +103,6 @@ int main(int argc, char** argv)
   oclCheckErrorEX(clFeedback, CL_SUCCESS, NULL);
   shrLog("\n  # of Compute Units = %u\n", uiNumComputeUnits);
 
-  // get command line arg for quick test, if provided
-  bNoPrompt = shrCheckCmdLineFlag(argc, (const char**)argv, "noprompt");
 
   // start logs
   cExecutableName = argv[0];
