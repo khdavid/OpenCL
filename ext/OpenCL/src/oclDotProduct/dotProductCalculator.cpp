@@ -34,7 +34,7 @@ namespace
       }
     }
   }
-  std::vector<cl_device_id> getDevices()
+  cl_device_id getTargetDevice()
   {
     // Get the NVIDIA platform
     cl_platform_id platformId;      // OpenCL platform
@@ -47,20 +47,22 @@ namespace
     std::vector<cl_device_id> devices(numDevices);      // OpenCL device
     clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), nullptr);
     std::cout << "# of Devices Available = " << numDevices << std::endl;
-    return devices;
+
+    const cl_uint TARGET_DEVICE = 0;	        // Default Device to compute on
+    std::cout << "Using Device %u: " << TARGET_DEVICE << std::endl;
+    oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
+
+    return devices[TARGET_DEVICE];
   }
 }
 
 void DotProductCalculator::run()
   {
-    auto devices = getDevices();
-    const cl_uint TARGET_DEVICE = 0;	        // Default Device to compute on
-    std::cout << "Using Device %u: " << TARGET_DEVICE << std::endl;
-    oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
+    auto targetDevice = getTargetDevice();
 
-    reportConstant<cl_uint>(devices[TARGET_DEVICE], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
-    reportConstant<size_t>(devices[TARGET_DEVICE], CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
-    reportConstant<size_t>(devices[TARGET_DEVICE], CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
+    reportConstant<cl_uint>(targetDevice, CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
+    reportConstant<size_t>(targetDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
+    reportConstant<size_t>(targetDevice, CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
 
 
     // start logs
@@ -82,8 +84,8 @@ void DotProductCalculator::run()
     shrFillArray((float*)srcA.data(), 4 * NUM_ELEMENTS);
     shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
 
-    gpuContext_ = clCreateContext(nullptr, 1, &devices[TARGET_DEVICE], nullptr, nullptr, nullptr);
-    commandQueue_ = clCreateCommandQueue(gpuContext_, devices[TARGET_DEVICE], 0, nullptr);
+    gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
+    commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
 
     srcABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
     srcBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
@@ -97,7 +99,7 @@ void DotProductCalculator::run()
     auto feedback = clBuildProgram(gpuProgram_, 0, nullptr, nullptr, nullptr, nullptr);
     if (feedback != CL_SUCCESS)
     {
-      oclLogBuildInfo(gpuProgram_, devices[TARGET_DEVICE]);
+      oclLogBuildInfo(gpuProgram_, targetDevice);
       return;
     }
 
