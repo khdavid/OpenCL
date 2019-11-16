@@ -1,8 +1,12 @@
 #include <string>
-#include <oclUtils.h>
-#include <shrQATest.h>
 #include <iostream>
 #include <vector>
+
+#include <oclUtils.h>
+#include <shrQATest.h>
+
+#include "dotProductCalculator.h"
+
 #include "DotProduct.cl"
 
 size_t szParmDataBytes;			// Byte size of context information
@@ -32,10 +36,7 @@ namespace
   }
 }
 
-class DotProductCalculator
-{
-public:
-  void run()
+void DotProductCalculator::run()
   {
     // Get the NVIDIA platform
     cl_platform_id platformId;      // OpenCL platform
@@ -132,7 +133,8 @@ public:
     std::cout << "COMPARING STATUS : " << bMatch << std::endl;
 
   }
-~DotProductCalculator()
+
+DotProductCalculator::~DotProductCalculator()
 {
   if (srcABuffer_) clReleaseMemObject(srcABuffer_);
   if (srcBBuffer_) clReleaseMemObject(srcBBuffer_);
@@ -142,15 +144,7 @@ public:
   if (commandQueue_) clReleaseCommandQueue(commandQueue_);
   if (gpuContext_) clReleaseContext(gpuContext_);
 }
-private:
-  cl_mem srcABuffer_ = 0;
-  cl_mem srcBBuffer_ = 0;
-  cl_mem dstBuffer_ = 0;
-  cl_kernel kernel_ = 0;
-  cl_program gpuProgram_ = 0;
-  cl_command_queue commandQueue_ = 0;
-  cl_context gpuContext_ = 0;
-};
+
 
 // *********************************************************************
 int main(int argc, char** argv)
