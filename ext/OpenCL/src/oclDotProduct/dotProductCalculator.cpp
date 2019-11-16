@@ -34,9 +34,7 @@ namespace
       }
     }
   }
-}
-
-void DotProductCalculator::run()
+  std::vector<cl_device_id> getDevices()
   {
     // Get the NVIDIA platform
     cl_platform_id platformId;      // OpenCL platform
@@ -48,9 +46,14 @@ void DotProductCalculator::run()
     clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 0, nullptr, &numDevices);
     std::vector<cl_device_id> devices(numDevices);      // OpenCL device
     clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), nullptr);
-
-    // Get command line device options and config accordingly
     std::cout << "# of Devices Available = " << numDevices << std::endl;
+    return devices;
+  }
+}
+
+void DotProductCalculator::run()
+  {
+    auto devices = getDevices();
     const cl_uint TARGET_DEVICE = 0;	        // Default Device to compute on
     std::cout << "Using Device %u: " << TARGET_DEVICE << std::endl;
     oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
