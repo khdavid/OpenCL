@@ -41,7 +41,10 @@ int main(int argc, char** argv)
   oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
 
   reportInt(devices[TARGET_DEVICE], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
-
+  reportInt(devices[TARGET_DEVICE], CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
+  reportInt(devices[TARGET_DEVICE], CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
+  
+  
   // start logs
   const int NUM_ELEMENTS = 1277944;	    // Length of float arrays to process (odd # for illustration)
   shrLog("Starting...\n\n# of float elements per Array \t= %u\n", NUM_ELEMENTS);
@@ -101,7 +104,7 @@ int main(int argc, char** argv)
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  feedback = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL, &globalWorkSize, &LOCAL_WORK_SIZE, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
   oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
