@@ -69,25 +69,16 @@ int main(int argc, char** argv)
   auto srcBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
   auto dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
 
-  shrLog("Create program");
+  std::cout << "Creating program" << std::endl;
   size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
   auto gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, &feedback);
-
-  // Build the program with 'mad' Optimization option
-#ifdef MAC
-  char* flags = "-cl-fast-relaxed-math -DMAC";
-#else
-  char* flags = "-cl-fast-relaxed-math";
-#endif
-  shrLog("clBuildProgram...\n");
+  const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
+  std::cout << "Building program" << std::endl;
   feedback = clBuildProgram(gpuProgram, 0, NULL, NULL, NULL, NULL);
   if (feedback != CL_SUCCESS)
   {
-    // write out standard error, Build Log and PTX, then cleanup and exit
-    shrLogEx(LOGBOTH | ERRORMSG, feedback, STDERROR);
-    oclLogBuildInfo(gpuProgram, oclGetFirstDev(gpuContext));
-    oclLogPtx(gpuProgram, oclGetFirstDev(gpuContext), "oclDotProduct.ptx");
-    Cleanup(EXIT_FAILURE);
+    oclLogBuildInfo(gpuProgram, devices[TARGET_DEVICE]);
+    return 1;
   }
 
   // Create the kernel
