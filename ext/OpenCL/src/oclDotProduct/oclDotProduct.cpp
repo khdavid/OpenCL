@@ -3,6 +3,7 @@
 #include <shrQATest.h>
 #include <iostream>
 #include <vector>
+#include "DotProduct.cl"
 
 // Name of the file with the source code for the computation kernel
 // *********************************************************************
@@ -26,7 +27,7 @@ cl_kernel ckKernel;             // OpenCL kernel
 //size_t szGlobalWorkSize;        // Total # of work items in the 1D range
 //size_t szLocalWorkSize;		    // # of work items in the 1D work group	
 size_t szParmDataBytes;			// Byte size of context information
-size_t szKernelLength;			// Byte size of kernel code
+//size_t szKernelLength;			// Byte size of kernel code
 //cl_int ciErrNum;			    // Error code var
 char* cPathAndName = NULL;      // var for full paths to data, src, etc.
 char* cSourceCL = NULL;         // Buffer to hold source for compilation 
@@ -96,15 +97,9 @@ int main(int argc, char** argv)
   auto srcBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
   auto dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
 
-  shrLog("oclLoadProgSource (%s)...\n", cSourceFile);
-  cPathAndName = shrFindFilePath(cSourceFile, argv[0]);
-  oclCheckErrorEX(cPathAndName != NULL, shrTRUE, pCleanup);
-  cSourceCL = oclLoadProgSource(cPathAndName, "", &szKernelLength);
-  oclCheckErrorEX(cSourceCL != NULL, shrTRUE, pCleanup);
-
-  // Create the program
-  shrLog("clCreateProgramWithSource...\n");
-  cpProgram = clCreateProgramWithSource(gpuContext, 1, (const char**)& cSourceCL, &szKernelLength, &feedback);
+  shrLog("Create program");
+  size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
+  cpProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, &feedback);
 
   // Build the program with 'mad' Optimization option
 #ifdef MAC

@@ -1,3 +1,4 @@
+const char * CL_PROGRAM_DOT_PRODUCT = R"( 
 /*
  * Copyright 1993-2010 NVIDIA Corporation.  All rights reserved.
  *
@@ -27,3 +28,4 @@
                + a[iInOffset + 2] * b[iInOffset + 2]
                + a[iInOffset + 3] * b[iInOffset + 3];
 }
+)";
