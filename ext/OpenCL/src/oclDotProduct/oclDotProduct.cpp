@@ -5,37 +5,9 @@
 #include <vector>
 #include "DotProduct.cl"
 
-// Name of the file with the source code for the computation kernel
-// *********************************************************************
-const char* cSourceFile = "DotProduct.cl";
-
-// Host buffers for demo
-// *********************************************************************
-//void *srcB, *dst;        // Host buffers for OpenCL test
-//void* Golden;                   // Host buffer for host golden processing cross check
-
-// OpenCL Vars
-//cl_platform_id cpPlatform;      // OpenCL platform
-//cl_device_id   *cdDevices;      // OpenCL device
-//cl_context cxGPUContext;        // OpenCL context
-//cl_command_queue commandQueue;// OpenCL command que
-cl_program cpProgram;           // OpenCL program
 cl_kernel ckKernel;             // OpenCL kernel
-//cl_mem cmDevSrcA;               // OpenCL device source buffer A
-//cl_mem cmDevSrcB;               // OpenCL device source buffer B 
-//cl_mem cmDevDst;                // OpenCL device destination buffer 
-//size_t szGlobalWorkSize;        // Total # of work items in the 1D range
-//size_t szLocalWorkSize;		    // # of work items in the 1D work group	
 size_t szParmDataBytes;			// Byte size of context information
-//size_t szKernelLength;			// Byte size of kernel code
-//cl_int ciErrNum;			    // Error code var
-char* cPathAndName = NULL;      // var for full paths to data, src, etc.
-char* cSourceCL = NULL;         // Buffer to hold source for compilation 
-//const char* cExecutableName = NULL;
 
-//shrBOOL bNoPrompt = shrFALSE;  
-
-// Forward Declarations
 // *********************************************************************
 void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements);
 void Cleanup (int iExitCode);
@@ -99,7 +71,7 @@ int main(int argc, char** argv)
 
   shrLog("Create program");
   size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
-  cpProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, &feedback);
+  auto gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, &feedback);
 
   // Build the program with 'mad' Optimization option
 #ifdef MAC
@@ -108,19 +80,19 @@ int main(int argc, char** argv)
   char* flags = "-cl-fast-relaxed-math";
 #endif
   shrLog("clBuildProgram...\n");
-  feedback = clBuildProgram(cpProgram, 0, NULL, NULL, NULL, NULL);
+  feedback = clBuildProgram(gpuProgram, 0, NULL, NULL, NULL, NULL);
   if (feedback != CL_SUCCESS)
   {
     // write out standard error, Build Log and PTX, then cleanup and exit
     shrLogEx(LOGBOTH | ERRORMSG, feedback, STDERROR);
-    oclLogBuildInfo(cpProgram, oclGetFirstDev(gpuContext));
-    oclLogPtx(cpProgram, oclGetFirstDev(gpuContext), "oclDotProduct.ptx");
+    oclLogBuildInfo(gpuProgram, oclGetFirstDev(gpuContext));
+    oclLogPtx(gpuProgram, oclGetFirstDev(gpuContext), "oclDotProduct.ptx");
     Cleanup(EXIT_FAILURE);
   }
 
   // Create the kernel
   shrLog("clCreateKernel (DotProduct)...\n");
-  ckKernel = clCreateKernel(cpProgram, "DotProduct", &feedback);
+  ckKernel = clCreateKernel(gpuProgram, "DotProduct", &feedback);
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
@@ -160,6 +132,7 @@ int main(int argc, char** argv)
   if (srcABuffer) clReleaseMemObject(srcABuffer);
   if (srcBBuffer) clReleaseMemObject(srcBBuffer);
   if (dstBuffer) clReleaseMemObject(dstBuffer);
+  if (gpuProgram) clReleaseProgram(gpuProgram);
   if (commandQueue) clReleaseCommandQueue(commandQueue);
   if (gpuContext) clReleaseContext(gpuContext);
 
@@ -346,10 +319,7 @@ void Cleanup(int iExitCode)
 {
     // Cleanup allocated objects
     shrLog("Starting Cleanup...\n\n");
-    if(cPathAndName)free(cPathAndName);
-    if(cSourceCL)free(cSourceCL);
 	if(ckKernel)clReleaseKernel(ckKernel);  
-    if(cpProgram)clReleaseProgram(cpProgram);
 
 
     //if (cdDevices) free(cdDevices);
