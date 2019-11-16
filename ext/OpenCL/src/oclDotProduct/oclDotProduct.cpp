@@ -86,20 +86,18 @@ int main(int argc, char** argv)
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
-  feedback = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)& srcABuffer);
-  feedback |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)& srcBBuffer);
-  feedback |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)& dstBuffer);
-  feedback |= clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)& srcABuffer);
+  clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)& srcBBuffer);
+  clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)& dstBuffer);
+  clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
 
   // --------------------------------------------------------
   // Core sequence... copy input data to GPU, compute, copy results back
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  feedback = clEnqueueWriteBuffer(commandQueue, srcABuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, NULL, NULL);
-  feedback |= clEnqueueWriteBuffer(commandQueue, srcBBuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, NULL, NULL);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  clEnqueueWriteBuffer(commandQueue, srcABuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, nullptr, nullptr);
+  clEnqueueWriteBuffer(commandQueue, srcBBuffer, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, nullptr, nullptr);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
