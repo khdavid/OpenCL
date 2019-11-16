@@ -12,10 +12,10 @@ void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult,
 void Cleanup (int iExitCode);
 void (*pCleanup)(int) = &Cleanup;
 
-
-void reportInt(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
+template <class T>
+void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
 {
-  cl_uint info;    
+  T info;    
   clGetDeviceInfo(deviceId, deviceInfoConstant, sizeof(info), &info, nullptr);
   std::cout << msg << info << std::endl;
 }
@@ -40,9 +40,9 @@ int main(int argc, char** argv)
   std::cout << "Using Device %u: " << TARGET_DEVICE << std::endl;
   oclPrintDevName(LOGBOTH, devices[TARGET_DEVICE]);
 
-  reportInt(devices[TARGET_DEVICE], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
-  reportInt(devices[TARGET_DEVICE], CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
-  reportInt(devices[TARGET_DEVICE], CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
+  reportConstant<cl_uint>(devices[TARGET_DEVICE], CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
+  reportConstant<size_t>(devices[TARGET_DEVICE], CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
+  reportConstant<size_t>(devices[TARGET_DEVICE], CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
   
   
   // start logs
@@ -105,12 +105,10 @@ int main(int argc, char** argv)
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
   clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  feedback = clEnqueueReadBuffer(commandQueue, dstBuffer, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, NULL, NULL);
-  oclCheckErrorEX(feedback, CL_SUCCESS, pCleanup);
+  clEnqueueReadBuffer(commandQueue, dstBuffer, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, nullptr, nullptr);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
