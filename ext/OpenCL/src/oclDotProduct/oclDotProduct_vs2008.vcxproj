@@ -197,7 +197,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="oclDotProduct.cpp" />
+    <ClCompile Include="dotProductCalculator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\shared\shrUtils_vs2008.vcxproj">
