@@ -74,7 +74,7 @@ int main(int argc, char** argv)
   auto gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, &feedback);
   const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
   std::cout << "Building program" << std::endl;
-  feedback = clBuildProgram(gpuProgram, 0, NULL, NULL, NULL, NULL);
+  feedback = clBuildProgram(gpuProgram, 0, nullptr, nullptr, nullptr, nullptr);
   if (feedback != CL_SUCCESS)
   {
     oclLogBuildInfo(gpuProgram, devices[TARGET_DEVICE]);
