@@ -8,16 +8,30 @@
 size_t szParmDataBytes;			// Byte size of context information
 
 // *********************************************************************
-void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements);
-void Cleanup (int iExitCode);
-void (*pCleanup)(int) = &Cleanup;
-
-template <class T>
-void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
+namespace
 {
-  T info;    
-  clGetDeviceInfo(deviceId, deviceInfoConstant, sizeof(info), &info, nullptr);
-  std::cout << msg << info << std::endl;
+  template <class T>
+  void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
+  {
+    T info;
+    clGetDeviceInfo(deviceId, deviceInfoConstant, sizeof(info), &info, nullptr);
+    std::cout << msg << info << std::endl;
+  }
+
+  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
+  {
+    int i, j, k;
+    for (i = 0, j = 0; i < iNumElements; i++)
+    {
+      pfResult[i] = 0.0f;
+      for (k = 0; k < 4; k++, j++)
+      {
+        pfResult[i] += pfData1[j] * pfData2[j];
+      }
+    }
+  }
+
+
 }
 
 // *********************************************************************
@@ -127,30 +141,4 @@ int main(int argc, char** argv)
   if (gpuContext) clReleaseContext(gpuContext);
 
   return 0;
-}
-
-void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
-{
-    int i, j, k;
-    for (i = 0, j = 0; i < iNumElements; i++) 
-    {
-        pfResult[i] = 0.0f;
-        for (k = 0; k < 4; k++, j++) 
-        {
-            pfResult[i] += pfData1[j] * pfData2[j]; 
-        } 
-    }
-}
-
-// Cleanup and exit code
-// *********************************************************************
-void Cleanup(int iExitCode)
-{
-    // Cleanup allocated objects
-    shrLog("Starting Cleanup...\n\n");
-
-
-    //if (cdDevices) free(cdDevices);
-
-    //shrQAFinishExit(*gp_argc, (const char **)*gp_argv, (iExitCode == EXIT_SUCCESS) ? QA_PASSED : QA_FAILED);
 }
