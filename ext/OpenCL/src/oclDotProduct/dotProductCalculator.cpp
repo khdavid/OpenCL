@@ -7,6 +7,7 @@
 #include <shrQATest.h>
 
 #include "dotProductCalculator.h"
+#include "timer.h"
 
 #include "DotProduct.cl"
 
@@ -98,6 +99,8 @@ namespace
 
   bool buildProgram(cl_context gpuContext, cl_device_id targetDevice, cl_program &gpuProgram)
   {
+    auto timer = Timer("Build program");
+
     std::cout << "Creating program" << std::endl;
     size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
     gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
@@ -115,6 +118,8 @@ namespace
 
   DotProductCalculator::Buffers createBuffers(cl_context gpuContext, size_t globalWorkSize)
   {
+    auto timer = Timer("Create buffers");
+
     DotProductCalculator::Buffers buffers;
     buffers.sourceABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
     buffers.sourceBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
@@ -125,6 +130,8 @@ namespace
 
   cl_kernel createKernel(cl_program gpuProgram, DotProductCalculator::Buffers buffers, size_t numElements)
   {
+    auto timer = Timer("Create kernel");
+
     // Create the kernel
     std::cout << "Creating Kernel (DotProduct)..." << std::endl;
     auto kernel = clCreateKernel(gpuProgram, "DotProduct", nullptr);
@@ -146,6 +153,7 @@ namespace
     size_t globalWorkSize,
     const Data& data)
   {
+    auto timer = Timer("Create Command Queue and write data to GPU device");
     auto commandQueue = clCreateCommandQueue(gpuContext, targetDevice, 0, nullptr);
 
     // Asynchronous write of data to GPU device
@@ -166,6 +174,7 @@ namespace
     size_t localWorkSize,
     std::vector<cl_float>& dotProductResults)
   {
+    auto timer = Timer("Launch kernel and run");
     // Launch kernel
     shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
     clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);
@@ -183,8 +192,12 @@ namespace
     std::vector<cl_float> dotProductResultsValidation(numElements);
 
 
-    DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(), 
-      (float*)dotProductResultsValidation.data(), (int)numElements);
+    {
+      auto timer = Timer("Calculation on CPU");
+      DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(),
+        (float*)dotProductResultsValidation.data(), (int)numElements);
+    }
+
     shrBOOL bMatch = shrComparefet((const float*)dotProductResultsValidation.data(), 
       (const float*)data.dotProductResults.data(), (unsigned int)numElements, 0.0f, 0);
     std::cout << std::boolalpha;
