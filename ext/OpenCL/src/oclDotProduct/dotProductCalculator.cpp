@@ -120,6 +120,41 @@ namespace
     return buffers;
   }
 
+  cl_kernel createKernel(cl_program gpuProgram, DotProductCalculator::Buffers buffers, size_t numElements)
+  {
+    // Create the kernel
+    std::cout << "Creating Kernel (DotProduct)..." << std::endl;
+    auto kernel = clCreateKernel(gpuProgram, "DotProduct", nullptr);
+
+    // Set the Argument values
+    shrLog("clSetKernelArg 0 - 3...\n\n");
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)& buffers.sourceABuffer);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)& buffers.sourceBBuffer);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)& buffers.dstBuffer);
+    clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)& numElements);
+
+    return kernel;
+  }
+
+  cl_command_queue createCommandQueue(
+    cl_context gpuContext,
+    cl_device_id targetDevice,
+    DotProductCalculator::Buffers buffers,
+    size_t globalWorkSize,
+    const Data& data)
+  {
+    auto commandQueue = clCreateCommandQueue(gpuContext, targetDevice, 0, nullptr);
+
+    // Asynchronous write of data to GPU device
+    shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
+    clEnqueueWriteBuffer(commandQueue, buffers.sourceABuffer, CL_FALSE, 0, 
+      sizeof(cl_float) * globalWorkSize * 4, data.sourceA.data(), 0, nullptr, nullptr);
+    clEnqueueWriteBuffer(commandQueue, buffers.sourceBBuffer, CL_FALSE, 0, 
+      sizeof(cl_float) * globalWorkSize * 4, data.sourceB.data(), 0, nullptr, nullptr);
+
+    return commandQueue;
+  }
+
 }
 
 
@@ -135,7 +170,6 @@ void DotProductCalculator::run()
   Data data(GLOBAL_WORK_SIZE);
   populateDataInput(data, NUM_ELEMENTS);
 
-
   gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
 
   if (!buildProgram(gpuContext_, targetDevice, gpuProgram_))
@@ -143,26 +177,12 @@ void DotProductCalculator::run()
 
   buffers_ = createBuffers(gpuContext_, GLOBAL_WORK_SIZE);
 
-  // Create the kernel
-  std::cout << "Creating Kernel (DotProduct)..." << std::endl;
-  kernel_ = clCreateKernel(gpuProgram_, "DotProduct", nullptr);
-
-  // Set the Argument values
-  shrLog("clSetKernelArg 0 - 3...\n\n");
-  clSetKernelArg(kernel_, 0, sizeof(cl_mem), (void*)& buffers_.sourceABuffer);
-  clSetKernelArg(kernel_, 1, sizeof(cl_mem), (void*)& buffers_.sourceBBuffer);
-  clSetKernelArg(kernel_, 2, sizeof(cl_mem), (void*)& buffers_.dstBuffer);
-  clSetKernelArg(kernel_, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
+  kernel_ = createKernel(gpuProgram_, buffers_, NUM_ELEMENTS);
 
   // --------------------------------------------------------
   // Core sequence... copy input data to GPU, compute, copy results back
 
-  commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
-
-  // Asynchronous write of data to GPU device
-  shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  clEnqueueWriteBuffer(commandQueue_, buffers_.sourceABuffer, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceA.data(), 0, nullptr, nullptr);
-  clEnqueueWriteBuffer(commandQueue_, buffers_.sourceBBuffer, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceB.data(), 0, nullptr, nullptr);
+  commandQueue_ = createCommandQueue(gpuContext_, targetDevice, buffers_, GLOBAL_WORK_SIZE, data);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
