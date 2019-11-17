@@ -91,21 +91,21 @@ namespace
     shrFillArray((float*)data.sourceB.data(), int (4 * numElements));
   }
 
-  std::optional<cl_program> buildProgram(cl_context gpuContext, cl_device_id targetDevice)
+  bool buildProgram(cl_context gpuContext, cl_device_id targetDevice, cl_program &gpuProgram)
   {
     std::cout << "Creating program" << std::endl;
     size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
-    auto gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
+    gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
     //const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
     std::cout << "Building program" << std::endl;
     auto feedback = clBuildProgram(gpuProgram, 0, nullptr, nullptr, nullptr, nullptr);
     if (feedback != CL_SUCCESS)
     {
       oclLogBuildInfo(gpuProgram, targetDevice);
-      return std::nullopt;
+      return false;
     }
 
-    return gpuProgram;
+    return true;
   }
 }
 
@@ -120,14 +120,9 @@ void DotProductCalculator::run()
 
 
   gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
-  auto gpuProgramOptional = buildProgram(gpuContext_, targetDevice);
 
-  if (!gpuProgramOptional) 
+  if (!buildProgram(gpuContext_, targetDevice, gpuProgram_))
     return;
-
-  gpuProgram_ = *gpuProgramOptional;
-
-
 
   buffers_.sourceABuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
   buffers_.sourceBBuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
