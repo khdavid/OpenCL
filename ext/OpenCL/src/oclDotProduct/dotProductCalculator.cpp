@@ -174,13 +174,16 @@ namespace
     size_t localWorkSize,
     std::vector<cl_float>& dotProductResults)
   {
-    auto timer = Timer("Launch kernel and run");
-    // Launch kernel
-    shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-    clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);
+    {
+      auto timer = Timer("Run calculation");
+      // Launch kernel
+      shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
+      clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);
+    }
 
     // Read back results and check accumulated errors
     shrLog("clEnqueueReadBuffer (Dst)...\n\n");
+    auto timer = Timer("Read results of calculations");
     clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0, 
       sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
   }
