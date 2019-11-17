@@ -160,6 +160,23 @@ namespace
     return commandQueue;
   }
 
+  void launchKernelAndRun(
+    cl_command_queue commandQueue,
+    cl_kernel kernel,
+    DotProductCalculator::Buffers buffers,
+    size_t globalWorkSize,
+    size_t localWorkSize,
+    std::vector<cl_float>& dotProductResults)
+  {
+    // Launch kernel
+    shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
+    clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);
+
+    // Read back results and check accumulated errors
+    shrLog("clEnqueueReadBuffer (Dst)...\n\n");
+    clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0, 
+      sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
+  }
 }
 
 
@@ -189,13 +206,8 @@ void DotProductCalculator::run()
 
   commandQueue_ = createCommandQueue(gpuContext_, targetDevice, buffers_, GLOBAL_WORK_SIZE, data);
 
-  // Launch kernel
-  shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-  clEnqueueNDRangeKernel(commandQueue_, kernel_, 1, nullptr, &GLOBAL_WORK_SIZE, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
-
-  // Read back results and check accumulated errors
-  shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  clEnqueueReadBuffer(commandQueue_, buffers_.dstBuffer, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, data.dotProductResults.data(), 0, nullptr, nullptr);
+  launchKernelAndRun(commandQueue_, kernel_, buffers_,
+    GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE, data.dotProductResults);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
