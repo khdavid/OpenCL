@@ -74,85 +74,92 @@ namespace
       globalWorkSize, localWorkSize, (globalWorkSize % localWorkSize + globalWorkSize / localWorkSize));
   }
 
+  struct Data
+  {
+    std::vector<cl_float4> sourceA = std::vector<cl_float4>(GLOBAL_WORK_SIZE);
+    std::vector<cl_float4> sourceB = std::vector<cl_float4>(GLOBAL_WORK_SIZE);
+    std::vector<cl_float> dotProductResults = std::vector<cl_float>(GLOBAL_WORK_SIZE);
+    std::vector<cl_float> dotProductResultsValidation = std::vector<cl_float>(GLOBAL_WORK_SIZE);
+  };
+
+  void populateDataInput(Data& data, size_t numElements)
+  {
+    // Allocate and initialize host arrays
+    shrLog("Allocate and Init Host Mem...\n");
+    shrFillArray((float*)data.sourceA.data(), int (4 * numElements));
+    shrFillArray((float*)data.sourceB.data(), int (4 * numElements));
+  }
 }
 
 
-  void DotProductCalculator::run()
+void DotProductCalculator::run()
+{
+  auto targetDevice = getTargetDevice();
+  reportDeviceInfo(targetDevice);
+  reportComputationConstants(NUM_ELEMENTS, GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE);
+  Data data;
+  populateDataInput(data, NUM_ELEMENTS);
+
+
+
+  gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
+  commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
+
+  sourceABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  sourceBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+
+  std::cout << "Creating program" << std::endl;
+  size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
+  gpuProgram_ = clCreateProgramWithSource(gpuContext_, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
+  const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
+  std::cout << "Building program" << std::endl;
+  auto feedback = clBuildProgram(gpuProgram_, 0, nullptr, nullptr, nullptr, nullptr);
+  if (feedback != CL_SUCCESS)
   {
-    auto targetDevice = getTargetDevice();
-    reportDeviceInfo(targetDevice);
-    reportComputationConstants(NUM_ELEMENTS, GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE);
-
-
-
-    // Allocate and initialize host arrays
-    shrLog("Allocate and Init Host Mem...\n");
-    std::vector<cl_float4> srcA(GLOBAL_WORK_SIZE);
-    std::vector<cl_float4> srcB(GLOBAL_WORK_SIZE);
-    std::vector<cl_float> dst(GLOBAL_WORK_SIZE);
-    std::vector<cl_float> Golden(NUM_ELEMENTS);
-    shrFillArray((float*)srcA.data(), 4 * NUM_ELEMENTS);
-    shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
-
-    gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
-    commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
-
-    srcABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-    srcBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-    dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-
-    std::cout << "Creating program" << std::endl;
-    size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
-    gpuProgram_ = clCreateProgramWithSource(gpuContext_, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
-    const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
-    std::cout << "Building program" << std::endl;
-    auto feedback = clBuildProgram(gpuProgram_, 0, nullptr, nullptr, nullptr, nullptr);
-    if (feedback != CL_SUCCESS)
-    {
-      oclLogBuildInfo(gpuProgram_, targetDevice);
-      return;
-    }
-
-    // Create the kernel
-    std::cout << "Creating Kernel (DotProduct)..." << std::endl;
-    kernel_ = clCreateKernel(gpuProgram_, "DotProduct", &feedback);
-
-    // Set the Argument values
-    shrLog("clSetKernelArg 0 - 3...\n\n");
-    clSetKernelArg(kernel_, 0, sizeof(cl_mem), (void*)& srcABuffer_);
-    clSetKernelArg(kernel_, 1, sizeof(cl_mem), (void*)& srcBBuffer_);
-    clSetKernelArg(kernel_, 2, sizeof(cl_mem), (void*)& dstBuffer_);
-    clSetKernelArg(kernel_, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
-
-    // --------------------------------------------------------
-    // Core sequence... copy input data to GPU, compute, copy results back
-
-    // Asynchronous write of data to GPU device
-    shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-    clEnqueueWriteBuffer(commandQueue_, srcABuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, srcA.data(), 0, nullptr, nullptr);
-    clEnqueueWriteBuffer(commandQueue_, srcBBuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, srcB.data(), 0, nullptr, nullptr);
-
-    // Launch kernel
-    shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-    clEnqueueNDRangeKernel(commandQueue_, kernel_, 1, nullptr, &GLOBAL_WORK_SIZE, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
-
-    // Read back results and check accumulated errors
-    shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-    clEnqueueReadBuffer(commandQueue_, dstBuffer_, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, dst.data(), 0, nullptr, nullptr);
-
-    // Compute and compare results for golden-host and report errors and pass/fail
-    shrLog("Comparing against Host/C++ computation...\n\n");
-    DotProductHost((const float*)srcA.data(), (const float*)srcB.data(), (float*)Golden.data(), NUM_ELEMENTS);
-    shrBOOL bMatch = shrComparefet((const float*)Golden.data(), (const float*)dst.data(), (unsigned int)NUM_ELEMENTS, 0.0f, 0);
-    std::cout << std::boolalpha;
-    std::cout << "COMPARING STATUS : " << bMatch << std::endl;
-
+    oclLogBuildInfo(gpuProgram_, targetDevice);
+    return;
   }
+
+  // Create the kernel
+  std::cout << "Creating Kernel (DotProduct)..." << std::endl;
+  kernel_ = clCreateKernel(gpuProgram_, "DotProduct", &feedback);
+
+  // Set the Argument values
+  shrLog("clSetKernelArg 0 - 3...\n\n");
+  clSetKernelArg(kernel_, 0, sizeof(cl_mem), (void*)& sourceABuffer_);
+  clSetKernelArg(kernel_, 1, sizeof(cl_mem), (void*)& sourceBBuffer_);
+  clSetKernelArg(kernel_, 2, sizeof(cl_mem), (void*)& dstBuffer_);
+  clSetKernelArg(kernel_, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
+
+  // --------------------------------------------------------
+  // Core sequence... copy input data to GPU, compute, copy results back
+
+  // Asynchronous write of data to GPU device
+  shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
+  clEnqueueWriteBuffer(commandQueue_, sourceABuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceA.data(), 0, nullptr, nullptr);
+  clEnqueueWriteBuffer(commandQueue_, sourceBBuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceB.data(), 0, nullptr, nullptr);
+
+  // Launch kernel
+  shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
+  clEnqueueNDRangeKernel(commandQueue_, kernel_, 1, nullptr, &GLOBAL_WORK_SIZE, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
+
+  // Read back results and check accumulated errors
+  shrLog("clEnqueueReadBuffer (Dst)...\n\n");
+  clEnqueueReadBuffer(commandQueue_, dstBuffer_, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, data.dotProductResults.data(), 0, nullptr, nullptr);
+
+  // Compute and compare results for golden-host and report errors and pass/fail
+  shrLog("Comparing against Host/C++ computation...\n\n");
+  DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(), (float*)data.dotProductResultsValidation.data(), NUM_ELEMENTS);
+  shrBOOL bMatch = shrComparefet((const float*)data.dotProductResultsValidation.data(), (const float*)data.dotProductResults.data(), (unsigned int)NUM_ELEMENTS, 0.0f, 0);
+  std::cout << std::boolalpha;
+  std::cout << "COMPARING STATUS : " << bMatch << std::endl;
+}
 
 DotProductCalculator::~DotProductCalculator()
 {
-  if (srcABuffer_) clReleaseMemObject(srcABuffer_);
-  if (srcBBuffer_) clReleaseMemObject(srcBBuffer_);
+  if (sourceABuffer_) clReleaseMemObject(sourceABuffer_);
+  if (sourceBBuffer_) clReleaseMemObject(sourceBBuffer_);
   if (dstBuffer_) clReleaseMemObject(dstBuffer_);
   if (kernel_) clReleaseKernel(kernel_);
   if (gpuProgram_) clReleaseProgram(gpuProgram_);
