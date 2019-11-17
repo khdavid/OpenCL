@@ -125,13 +125,13 @@ void DotProductCalculator::run()
   if (!gpuProgramOptional) 
     return;
 
-  gpuProgram_ = *gpuProgramOptional;;
+  gpuProgram_ = *gpuProgramOptional;
 
 
 
-  sourceABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-  sourceBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-  dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  buffers_.sourceABuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  buffers_.sourceBBuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  buffers_.dstBuffer = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
 
   // Create the kernel
   std::cout << "Creating Kernel (DotProduct)..." << std::endl;
@@ -139,9 +139,9 @@ void DotProductCalculator::run()
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
-  clSetKernelArg(kernel_, 0, sizeof(cl_mem), (void*)& sourceABuffer_);
-  clSetKernelArg(kernel_, 1, sizeof(cl_mem), (void*)& sourceBBuffer_);
-  clSetKernelArg(kernel_, 2, sizeof(cl_mem), (void*)& dstBuffer_);
+  clSetKernelArg(kernel_, 0, sizeof(cl_mem), (void*)& buffers_.sourceABuffer);
+  clSetKernelArg(kernel_, 1, sizeof(cl_mem), (void*)& buffers_.sourceBBuffer);
+  clSetKernelArg(kernel_, 2, sizeof(cl_mem), (void*)& buffers_.dstBuffer);
   clSetKernelArg(kernel_, 3, sizeof(cl_int), (void*)& NUM_ELEMENTS);
 
   // --------------------------------------------------------
@@ -151,8 +151,8 @@ void DotProductCalculator::run()
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-  clEnqueueWriteBuffer(commandQueue_, sourceABuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceA.data(), 0, nullptr, nullptr);
-  clEnqueueWriteBuffer(commandQueue_, sourceBBuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceB.data(), 0, nullptr, nullptr);
+  clEnqueueWriteBuffer(commandQueue_, buffers_.sourceABuffer, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceA.data(), 0, nullptr, nullptr);
+  clEnqueueWriteBuffer(commandQueue_, buffers_.sourceBBuffer, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, data.sourceB.data(), 0, nullptr, nullptr);
 
   // Launch kernel
   shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
@@ -160,7 +160,7 @@ void DotProductCalculator::run()
 
   // Read back results and check accumulated errors
   shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-  clEnqueueReadBuffer(commandQueue_, dstBuffer_, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, data.dotProductResults.data(), 0, nullptr, nullptr);
+  clEnqueueReadBuffer(commandQueue_, buffers_.dstBuffer, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, data.dotProductResults.data(), 0, nullptr, nullptr);
 
   // Compute and compare results for golden-host and report errors and pass/fail
   shrLog("Comparing against Host/C++ computation...\n\n");
@@ -172,9 +172,9 @@ void DotProductCalculator::run()
 
 DotProductCalculator::~DotProductCalculator()
 {
-  if (sourceABuffer_) clReleaseMemObject(sourceABuffer_);
-  if (sourceBBuffer_) clReleaseMemObject(sourceBBuffer_);
-  if (dstBuffer_) clReleaseMemObject(dstBuffer_);
+  if (buffers_.sourceABuffer) clReleaseMemObject(buffers_.sourceABuffer);
+  if (buffers_.sourceBBuffer) clReleaseMemObject(buffers_.sourceBBuffer);
+  if (buffers_.dstBuffer) clReleaseMemObject(buffers_.dstBuffer);
   if (kernel_) clReleaseKernel(kernel_);
   if (gpuProgram_) clReleaseProgram(gpuProgram_);
   if (commandQueue_) clReleaseCommandQueue(commandQueue_);
