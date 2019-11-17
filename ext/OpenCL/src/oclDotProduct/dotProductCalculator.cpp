@@ -85,6 +85,11 @@ namespace
     std::vector<cl_float> dotProductResultsValidation;
   };
 
+  cl_context createGPUContext(cl_device_id targetDevice)
+  {
+    return clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
+  }
+
   void populateDataInput(Data& data, size_t numElements)
   {
     // Allocate and initialize host arrays
@@ -170,7 +175,7 @@ void DotProductCalculator::run()
   Data data(GLOBAL_WORK_SIZE);
   populateDataInput(data, NUM_ELEMENTS);
 
-  gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
+  gpuContext_ = createGPUContext(targetDevice);
 
   if (!buildProgram(gpuContext_, targetDevice, gpuProgram_))
     return;
