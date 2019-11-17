@@ -15,10 +15,6 @@ size_t szParmDataBytes;			// Byte size of context information
 // *********************************************************************
 namespace
 {
-  const size_t NUM_ELEMENTS = 1277944;
-  const size_t LOCAL_WORK_SIZE = 256;
-  const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
-
   template <class T>
   void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
   {
@@ -77,10 +73,16 @@ namespace
 
   struct Data
   {
-    std::vector<cl_float4> sourceA = std::vector<cl_float4>(GLOBAL_WORK_SIZE);
-    std::vector<cl_float4> sourceB = std::vector<cl_float4>(GLOBAL_WORK_SIZE);
-    std::vector<cl_float> dotProductResults = std::vector<cl_float>(GLOBAL_WORK_SIZE);
-    std::vector<cl_float> dotProductResultsValidation = std::vector<cl_float>(GLOBAL_WORK_SIZE);
+    Data(size_t size) : 
+      sourceA(size),
+      sourceB(size),
+      dotProductResults(size),
+      dotProductResultsValidation(size)
+    {}
+    std::vector<cl_float4> sourceA;
+    std::vector<cl_float4> sourceB;
+    std::vector<cl_float> dotProductResults;
+    std::vector<cl_float> dotProductResultsValidation;
   };
 
   void populateDataInput(Data& data, size_t numElements)
@@ -107,15 +109,30 @@ namespace
 
     return true;
   }
+
+  DotProductCalculator::Buffers createBuffers(cl_context gpuContext, size_t globalWorkSize)
+  {
+    DotProductCalculator::Buffers buffers;
+    buffers.sourceABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
+    buffers.sourceBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
+    buffers.dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
+
+    return buffers;
+  }
+
 }
 
 
 void DotProductCalculator::run()
 {
+  const size_t NUM_ELEMENTS = 1277944;
+  const size_t LOCAL_WORK_SIZE = 256;
+  const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
+
   auto targetDevice = getTargetDevice();
   reportDeviceInfo(targetDevice);
   reportComputationConstants(NUM_ELEMENTS, GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE);
-  Data data;
+  Data data(GLOBAL_WORK_SIZE);
   populateDataInput(data, NUM_ELEMENTS);
 
 
@@ -124,9 +141,7 @@ void DotProductCalculator::run()
   if (!buildProgram(gpuContext_, targetDevice, gpuProgram_))
     return;
 
-  buffers_.sourceABuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-  buffers_.sourceBBuffer = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
-  buffers_.dstBuffer = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+  buffers_ = createBuffers(gpuContext_, GLOBAL_WORK_SIZE);
 
   // Create the kernel
   std::cout << "Creating Kernel (DotProduct)..." << std::endl;

@@ -4,13 +4,13 @@ class DotProductCalculator
 public:
   void run();
   ~DotProductCalculator();
-private:
   struct Buffers
   {
     cl_mem sourceABuffer = 0;
     cl_mem sourceBBuffer = 0;
     cl_mem dstBuffer = 0;
   };
+private:
   Buffers buffers_;
   cl_kernel kernel_ = 0;
   cl_program gpuProgram_ = 0;
