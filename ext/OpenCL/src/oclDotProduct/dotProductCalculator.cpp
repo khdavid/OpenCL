@@ -1,6 +1,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <optional>
 
 #include <oclUtils.h>
 #include <shrQATest.h>
@@ -89,6 +90,23 @@ namespace
     shrFillArray((float*)data.sourceA.data(), int (4 * numElements));
     shrFillArray((float*)data.sourceB.data(), int (4 * numElements));
   }
+
+  std::optional<cl_program> buildProgram(cl_context gpuContext, cl_device_id targetDevice)
+  {
+    std::cout << "Creating program" << std::endl;
+    size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
+    auto gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
+    //const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
+    std::cout << "Building program" << std::endl;
+    auto feedback = clBuildProgram(gpuProgram, 0, nullptr, nullptr, nullptr, nullptr);
+    if (feedback != CL_SUCCESS)
+    {
+      oclLogBuildInfo(gpuProgram, targetDevice);
+      return std::nullopt;
+    }
+
+    return gpuProgram;
+  }
 }
 
 
@@ -101,29 +119,23 @@ void DotProductCalculator::run()
   populateDataInput(data, NUM_ELEMENTS);
 
 
-
   gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
-  commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
+  auto gpuProgramOptional = buildProgram(gpuContext_, targetDevice);
+
+  if (!gpuProgramOptional) 
+    return;
+
+  gpuProgram_ = *gpuProgramOptional;;
+
+
 
   sourceABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
   sourceBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
   dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
 
-  std::cout << "Creating program" << std::endl;
-  size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
-  gpuProgram_ = clCreateProgramWithSource(gpuContext_, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
-  const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
-  std::cout << "Building program" << std::endl;
-  auto feedback = clBuildProgram(gpuProgram_, 0, nullptr, nullptr, nullptr, nullptr);
-  if (feedback != CL_SUCCESS)
-  {
-    oclLogBuildInfo(gpuProgram_, targetDevice);
-    return;
-  }
-
   // Create the kernel
   std::cout << "Creating Kernel (DotProduct)..." << std::endl;
-  kernel_ = clCreateKernel(gpuProgram_, "DotProduct", &feedback);
+  kernel_ = clCreateKernel(gpuProgram_, "DotProduct", nullptr);
 
   // Set the Argument values
   shrLog("clSetKernelArg 0 - 3...\n\n");
@@ -134,6 +146,8 @@ void DotProductCalculator::run()
 
   // --------------------------------------------------------
   // Core sequence... copy input data to GPU, compute, copy results back
+
+  commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
 
   // Asynchronous write of data to GPU device
   shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
