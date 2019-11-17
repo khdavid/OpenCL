@@ -14,6 +14,10 @@ size_t szParmDataBytes;			// Byte size of context information
 // *********************************************************************
 namespace
 {
+  const size_t NUM_ELEMENTS = 1277944;
+  const size_t LOCAL_WORK_SIZE = 256;
+  const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
+
   template <class T>
   void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
   {
@@ -54,32 +58,38 @@ namespace
 
     return devices[TARGET_DEVICE];
   }
-}
 
-void DotProductCalculator::run()
+  void reportDeviceInfo(const cl_device_id targetDevice)
   {
-    auto targetDevice = getTargetDevice();
-
     reportConstant<cl_uint>(targetDevice, CL_DEVICE_MAX_COMPUTE_UNITS, "Number of compute units = ");
     reportConstant<size_t>(targetDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, "Max Number work groups = ");
     reportConstant<size_t>(targetDevice, CL_KERNEL_WORK_GROUP_SIZE, "Max Number kernel work groups = ");
+  }
 
-
+  void reportComputationConstants(size_t numElements, size_t globalWorkSize, size_t localWorkSize)
+  {
     // start logs
-    const int NUM_ELEMENTS = 1277944;	    // Length of float arrays to process (odd # for illustration)
-    shrLog("Starting...\n\n# of float elements per Array \t= %u\n", NUM_ELEMENTS);
-
-    // set and log Global and Local work size dimensions
-    const size_t LOCAL_WORK_SIZE = 256;
-    const auto globalWorkSize = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
+    shrLog("Starting...\n\n# of float elements per Array \t= %u\n", numElements);
     shrLog("Global Work Size \t\t= %u\nLocal Work Size \t\t= %u\n# of Work Groups \t\t= %u\n\n",
-      globalWorkSize, LOCAL_WORK_SIZE, (globalWorkSize % LOCAL_WORK_SIZE + globalWorkSize / LOCAL_WORK_SIZE));
+      globalWorkSize, localWorkSize, (globalWorkSize % localWorkSize + globalWorkSize / localWorkSize));
+  }
+
+}
+
+
+  void DotProductCalculator::run()
+  {
+    auto targetDevice = getTargetDevice();
+    reportDeviceInfo(targetDevice);
+    reportComputationConstants(NUM_ELEMENTS, GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE);
+
+
 
     // Allocate and initialize host arrays
     shrLog("Allocate and Init Host Mem...\n");
-    std::vector<cl_float4> srcA(globalWorkSize);
-    std::vector<cl_float4> srcB(globalWorkSize);
-    std::vector<cl_float> dst(globalWorkSize);
+    std::vector<cl_float4> srcA(GLOBAL_WORK_SIZE);
+    std::vector<cl_float4> srcB(GLOBAL_WORK_SIZE);
+    std::vector<cl_float> dst(GLOBAL_WORK_SIZE);
     std::vector<cl_float> Golden(NUM_ELEMENTS);
     shrFillArray((float*)srcA.data(), 4 * NUM_ELEMENTS);
     shrFillArray((float*)srcB.data(), 4 * NUM_ELEMENTS);
@@ -87,9 +97,9 @@ void DotProductCalculator::run()
     gpuContext_ = clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
     commandQueue_ = clCreateCommandQueue(gpuContext_, targetDevice, 0, nullptr);
 
-    srcABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
-    srcBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
-    dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
+    srcABuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+    srcBBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_READ_ONLY, sizeof(cl_float4) * GLOBAL_WORK_SIZE, nullptr, nullptr);
+    dstBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY, sizeof(cl_float) * GLOBAL_WORK_SIZE, nullptr, nullptr);
 
     std::cout << "Creating program" << std::endl;
     size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
@@ -119,16 +129,16 @@ void DotProductCalculator::run()
 
     // Asynchronous write of data to GPU device
     shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
-    clEnqueueWriteBuffer(commandQueue_, srcABuffer_, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcA.data(), 0, nullptr, nullptr);
-    clEnqueueWriteBuffer(commandQueue_, srcBBuffer_, CL_FALSE, 0, sizeof(cl_float) * globalWorkSize * 4, srcB.data(), 0, nullptr, nullptr);
+    clEnqueueWriteBuffer(commandQueue_, srcABuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, srcA.data(), 0, nullptr, nullptr);
+    clEnqueueWriteBuffer(commandQueue_, srcBBuffer_, CL_FALSE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE * 4, srcB.data(), 0, nullptr, nullptr);
 
     // Launch kernel
     shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
-    clEnqueueNDRangeKernel(commandQueue_, kernel_, 1, nullptr, &globalWorkSize, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
+    clEnqueueNDRangeKernel(commandQueue_, kernel_, 1, nullptr, &GLOBAL_WORK_SIZE, &LOCAL_WORK_SIZE, 0, nullptr, nullptr);
 
     // Read back results and check accumulated errors
     shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-    clEnqueueReadBuffer(commandQueue_, dstBuffer_, CL_TRUE, 0, sizeof(cl_float) * globalWorkSize, dst.data(), 0, nullptr, nullptr);
+    clEnqueueReadBuffer(commandQueue_, dstBuffer_, CL_TRUE, 0, sizeof(cl_float) * GLOBAL_WORK_SIZE, dst.data(), 0, nullptr, nullptr);
 
     // Compute and compare results for golden-host and report errors and pass/fail
     shrLog("Comparing against Host/C++ computation...\n\n");
