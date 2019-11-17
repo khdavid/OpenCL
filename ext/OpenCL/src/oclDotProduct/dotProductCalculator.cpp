@@ -76,13 +76,11 @@ namespace
     Data(size_t size) : 
       sourceA(size),
       sourceB(size),
-      dotProductResults(size),
-      dotProductResultsValidation(size)
+      dotProductResults(size)
     {}
     std::vector<cl_float4> sourceA;
     std::vector<cl_float4> sourceB;
     std::vector<cl_float> dotProductResults;
-    std::vector<cl_float> dotProductResultsValidation;
   };
 
   cl_context createGPUContext(cl_device_id targetDevice)
@@ -177,6 +175,21 @@ namespace
     clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0, 
       sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
   }
+
+  void validateCalculation(const Data& data, size_t numElements)
+  {
+    // Compute and compare results for golden-host and report errors and pass/fail
+    shrLog("Comparing against Host/C++ computation...\n\n");
+    std::vector<cl_float> dotProductResultsValidation(numElements);
+
+
+    DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(), 
+      (float*)dotProductResultsValidation.data(), (int)numElements);
+    shrBOOL bMatch = shrComparefet((const float*)dotProductResultsValidation.data(), 
+      (const float*)data.dotProductResults.data(), (unsigned int)numElements, 0.0f, 0);
+    std::cout << std::boolalpha;
+    std::cout << "COMPARING STATUS : " << bMatch << std::endl;
+  }
 }
 
 
@@ -209,12 +222,8 @@ void DotProductCalculator::run()
   launchKernelAndRun(commandQueue_, kernel_, buffers_,
     GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE, data.dotProductResults);
 
-  // Compute and compare results for golden-host and report errors and pass/fail
-  shrLog("Comparing against Host/C++ computation...\n\n");
-  DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(), (float*)data.dotProductResultsValidation.data(), NUM_ELEMENTS);
-  shrBOOL bMatch = shrComparefet((const float*)data.dotProductResultsValidation.data(), (const float*)data.dotProductResults.data(), (unsigned int)NUM_ELEMENTS, 0.0f, 0);
-  std::cout << std::boolalpha;
-  std::cout << "COMPARING STATUS : " << bMatch << std::endl;
+  validateCalculation(data, NUM_ELEMENTS);
+
 }
 
 DotProductCalculator::~DotProductCalculator()
