@@ -27,5 +27,11 @@ const char * CL_PROGRAM_DOT_PRODUCT = R"(
                + a[iInOffset + 1] * b[iInOffset + 1]
                + a[iInOffset + 2] * b[iInOffset + 2]
                + a[iInOffset + 3] * b[iInOffset + 3];
+
+   for(int ind = 0; ind < 1000; ind++)
+   {
+     c[iGID] += ind * ind / 1e6;
+   }
+
 }
 )";
