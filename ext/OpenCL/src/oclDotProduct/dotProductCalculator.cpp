@@ -37,7 +37,7 @@ namespace
 
       for (int ind = 0; ind < 1000; ind++)
       {
-        pfResult[i] += ind * ind / 1e6;
+        pfResult[i] += ind * ind / 1e6f;
       }
 
     }

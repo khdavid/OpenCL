@@ -30,7 +30,7 @@ const char * CL_PROGRAM_DOT_PRODUCT = R"(
 
    for(int ind = 0; ind < 1000; ind++)
    {
-     c[iGID] += ind * ind / 1e6;
+     c[iGID] += ind * ind / 1e6f;
    }
 
 }
