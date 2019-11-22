@@ -24,10 +24,10 @@ namespace
     std::cout << msg << info << std::endl;
   }
 
-  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
+  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
   {
     int i, j, k;
-    for (i = 0, j = 0; i < iNumElements; i++)
+    for (i = iMin, j = 0; i < iMax; i++)
     {
       pfResult[i] = 0.0f;
       for (k = 0; k < 4; k++, j++)
@@ -41,6 +41,26 @@ namespace
       }
 
     }
+  }
+
+  std::vector<int> getLevels(int nMax, int numOfThreads)
+  {
+    std::vector<int> result;
+    result.push_back(0);
+    for (int i = 0; i < numOfThreads; ++i)
+    {
+      double coeff = (i + 1) / double (numOfThreads);
+      auto level = (int)round(coeff * nMax);
+      result.push_back(level);
+    }
+    return result;
+  
+  }
+  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
+  {
+    const int NUM_THREADS = 1;
+    auto levels = getLevels(iNumElements, NUM_THREADS);
+    DotProductHost(pfData1, pfData2, pfResult, 0, iNumElements);
   }
   cl_device_id getTargetDevice()
   {
@@ -214,7 +234,7 @@ namespace
 
 void DotProductCalculator::run()
 {
-  const size_t NUM_ELEMENTS = 1277944;
+  const size_t NUM_ELEMENTS = 1;
   const size_t LOCAL_WORK_SIZE = 256;
   const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
 
