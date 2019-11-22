@@ -10,6 +10,7 @@
 #include "timer.h"
 
 #include "DotProduct.cl"
+#include <future>
 
 size_t szParmDataBytes;			// Byte size of context information
 
@@ -24,10 +25,10 @@ namespace
     std::cout << msg << info << std::endl;
   }
 
-  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
+  void DotProductHost2(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
   {
     int i, j, k;
-    for (i = iMin, j = 0; i < iMax; i++)
+    for (i = iMin, j = iMin; i < iMax; i++)
     {
       pfResult[i] = 0.0f;
       for (k = 0; k < 4; k++, j++)
@@ -58,10 +59,22 @@ namespace
   }
   void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
   {
-    const int NUM_THREADS = 1;
+    const int NUM_THREADS = 10000;
     auto levels = getLevels(iNumElements, NUM_THREADS);
-    DotProductHost(pfData1, pfData2, pfResult, 0, iNumElements);
+    std::vector<std::future<void>> futures;
+    for (int i = 0; i < levels.size() - 1; i++)
+    {
+      auto future = std::async(std::launch::async, DotProductHost2, pfData1, pfData2, pfResult, levels[i], levels[i+1]);
+      futures.push_back(std::move(future));
+    }
+
+    for (auto& f: futures)
+    {
+      f.get();
+    }
+
   }
+
   cl_device_id getTargetDevice()
   {
     // Get the NVIDIA platform
@@ -234,7 +247,7 @@ namespace
 
 void DotProductCalculator::run()
 {
-  const size_t NUM_ELEMENTS = 1;
+  const size_t NUM_ELEMENTS = 100000;
   const size_t LOCAL_WORK_SIZE = 256;
   const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
 
