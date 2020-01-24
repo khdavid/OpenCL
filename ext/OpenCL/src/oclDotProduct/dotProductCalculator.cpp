@@ -17,6 +17,29 @@ size_t szParmDataBytes;			// Byte size of context information
 // *********************************************************************
 namespace
 {
+const int NUM_THREADS = 24;
+  const size_t NUM_ELEMENTS = 5;
+  const size_t LOCAL_WORK_SIZE = 256;
+
+  void DotProductHost2(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
+  {
+    int i, k;
+    for (i = iMin; i < iMax; i++)
+    {
+      pfResult[i] = 0.0f;
+      for (k = 0; k < 4; k++)
+      {
+        pfResult[i] += pfData1[4 * i + k] * pfData2[4 * i + k];
+      }
+
+      for (int ind = 0; ind < 10; ind++)
+      {
+        pfResult[i] += ind * ind / 1e6f;
+      }
+
+    }
+  }
+
   template <class T>
   void reportConstant(const cl_device_id deviceId, const cl_device_info deviceInfoConstant, std::string msg)
   {
@@ -25,24 +48,6 @@ namespace
     std::cout << msg << info << std::endl;
   }
 
-  void DotProductHost2(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
-  {
-    int i, j, k;
-    for (i = iMin, j = iMin; i < iMax; i++)
-    {
-      pfResult[i] = 0.0f;
-      for (k = 0; k < 4; k++, j++)
-      {
-        pfResult[i] += pfData1[j] * pfData2[j];
-      }
-
-      for (int ind = 0; ind < 1000; ind++)
-      {
-        pfResult[i] += ind * ind / 1e6f;
-      }
-
-    }
-  }
 
   std::vector<int> getLevels(int nMax, int numOfThreads)
   {
@@ -59,7 +64,6 @@ namespace
   }
   void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
   {
-    const int NUM_THREADS = 10000;
     auto levels = getLevels(iNumElements, NUM_THREADS);
     std::vector<std::future<void>> futures;
     for (int i = 0; i < levels.size() - 1; i++)
@@ -72,6 +76,7 @@ namespace
     {
       f.get();
     }
+    int x = 5; x;
 
   }
 
@@ -134,6 +139,8 @@ namespace
     shrLog("Allocate and Init Host Mem...\n");
     shrFillArray((float*)data.sourceA.data(), int (4 * numElements));
     shrFillArray((float*)data.sourceB.data(), int (4 * numElements));
+    shrLog("Allocation done and Init Host Mem...\n");
+
   }
 
   bool buildProgram(cl_context gpuContext, cl_device_id targetDevice, cl_program &gpuProgram)
@@ -247,8 +254,6 @@ namespace
 
 void DotProductCalculator::run()
 {
-  const size_t NUM_ELEMENTS = 100000;
-  const size_t LOCAL_WORK_SIZE = 256;
   const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
 
   auto targetDevice = getTargetDevice();
