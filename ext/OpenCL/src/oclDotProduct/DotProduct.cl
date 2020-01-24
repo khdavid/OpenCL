@@ -13,24 +13,24 @@ const char * CL_PROGRAM_DOT_PRODUCT = R"(
  __kernel void DotProduct (__global float* a, __global float* b, __global float* c, int iNumElements)
 {
     // find position in global arrays
-    int iGID = get_global_id(0);
+    int i = get_global_id(0);
 
     // bound check (equivalent to the limit on a 'for' loop for standard/serial C code
-    if (iGID >= iNumElements)
+    if (i >= iNumElements)
     {   
         return; 
     }
 
     // process 
-    int iInOffset = iGID * 4 ;
-    c[iGID] = a[iInOffset] * b[iInOffset] 
-               + a[iInOffset + 1] * b[iInOffset + 1]
-               + a[iInOffset + 2] * b[iInOffset + 2]
-               + a[iInOffset + 3] * b[iInOffset + 3];
+    int k = i * 4 ;
+    c[i] = a[k] * b[k] 
+               + a[k + 1] * b[k + 1]
+               + a[k + 2] * b[k + 2]
+               + a[k + 3] * b[k + 3];
 
-   for(int ind = 0; ind < 10; ind++)
+   for(int ind = 0; ind < 1e5; ind++)
    {
-     c[iGID] += ind * ind / 1e6f;
+     c[i] += ind;
    }
 
 }
