@@ -184,7 +184,6 @@ const int NUM_THREADS = 24;
     auto kernel = clCreateKernel(gpuProgram, "DotProduct", nullptr);
 
     // Set the Argument values
-    shrLog("clSetKernelArg 0 - 3...\n\n");
     clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)& buffers.sourceABuffer);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)& buffers.sourceBBuffer);
     clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)& buffers.dstBuffer);
@@ -204,7 +203,6 @@ const int NUM_THREADS = 24;
     auto commandQueue = clCreateCommandQueue(gpuContext, targetDevice, 0, nullptr);
 
     // Asynchronous write of data to GPU device
-    shrLog("clEnqueueWriteBuffer (SrcA and SrcB)...\n");
     clEnqueueWriteBuffer(commandQueue, buffers.sourceABuffer, CL_FALSE, 0, 
       sizeof(cl_float) * globalWorkSize * 4, data.sourceA.data(), 0, nullptr, nullptr);
     clEnqueueWriteBuffer(commandQueue, buffers.sourceBBuffer, CL_FALSE, 0, 
@@ -221,21 +219,20 @@ const int NUM_THREADS = 24;
     size_t localWorkSize,
     std::vector<cl_float>& dotProductResults)
   {
-    auto timer = Timer("Run calculation and read results");
+    {
+      auto timer = Timer("Run calculation and read back results");
       // Launch kernel
-      shrLog("clEnqueueNDRangeKernel (DotProduct)...\n");
       clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);
 
-    // Read back results and check accumulated errors
-    shrLog("clEnqueueReadBuffer (Dst)...\n\n");
-    clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0, 
-      sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
+      // Read back results and check accumulated errors
+      clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0,
+        sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
+    }
   }
 
   void validateCalculation(const Data& data, size_t numElements)
   {
     // Compute and compare results for golden-host and report errors and pass/fail
-    shrLog("Comparing against Host/C++ computation...\n\n");
     std::vector<cl_float> dotProductResultsValidation(numElements);
 
 
