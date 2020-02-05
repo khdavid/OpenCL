@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>oclDotProduct</ProjectName>
+    <ProjectName>OpenCL</ProjectName>
     <ProjectGuid>{D6DD4313-F6A7-411D-96A4-94DD2F65E605}</ProjectGuid>
     <RootNamespace>oclDotProduct</RootNamespace>
     <Keyword>Win32Proj</Keyword>

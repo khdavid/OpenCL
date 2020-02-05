@@ -18,8 +18,8 @@ size_t szParmDataBytes;			// Byte size of context information
 namespace
 {
   const int NUM_THREADS = 24;
-  const size_t NUM_ELEMENTS = size_t(1.e4);
-  const size_t MAX_LOOP_IDX = size_t(1.e4);
+  const size_t NUM_ELEMENTS = size_t(1.e6);
+  const size_t MAX_LOOP_IDX = size_t(0);
   const size_t LOCAL_WORK_SIZE = 256;
 
   void HeavyCalculationCPU(const float* a, const float* b, float* c, int iMin, int iMax)
@@ -126,6 +126,8 @@ namespace
 
   cl_context createGPUContext(cl_device_id targetDevice)
   {
+    auto timer = Timer("Creating GPU context");
+
     return clCreateContext(nullptr, 1, &targetDevice, nullptr, nullptr, nullptr);
   }
 
@@ -247,6 +249,7 @@ namespace
 
 void HeavyCalculator::run()
 {
+
   const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
 
   auto targetDevice = getTargetDevice();
@@ -254,7 +257,7 @@ void HeavyCalculator::run()
   reportComputationConstants(NUM_ELEMENTS, GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE);
   Data data(GLOBAL_WORK_SIZE);
   populateDataInput(data, NUM_ELEMENTS);
-
+  auto timer = std::make_unique<Timer>("!!!TOTAL GPU TIME!!!");
   gpuContext_ = createGPUContext(targetDevice);
 
   if (!buildProgram(gpuContext_, targetDevice, gpuProgram_))
@@ -272,6 +275,7 @@ void HeavyCalculator::run()
   launchKernelAndRun(commandQueue_, kernel_, buffers_,
     GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE, data.heavyCalculationResults);
 
+  timer.reset();
   validateCalculation(data, NUM_ELEMENTS);
 
 }

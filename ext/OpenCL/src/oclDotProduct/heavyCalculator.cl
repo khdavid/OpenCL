@@ -3,7 +3,7 @@ const char * CL_PROGRAM_HEAVY_CALCULATION = R"(
 {
     int i = get_global_id(0);
 
-   for(int ind = 0; ind < 1e4; ind++)
+   for(int ind = 0; ind < 0; ind++)
    {
      int k = (4 * i + ind) % iNumElements;
      c[i] += sin(k * a[k]) * cos(k * b[k]);
