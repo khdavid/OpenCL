@@ -28,9 +28,9 @@ const char * CL_PROGRAM_DOT_PRODUCT = R"(
                + a[k + 2] * b[k + 2]
                + a[k + 3] * b[k + 3];
 
-   for(int ind = 0; ind < 1e5; ind++)
+   for(int ind = 0; ind < 1e4; ind++)
    {
-     c[i] += ind;
+     c[i] += sin(ind * a[ind % iNumElements]);
    }
 
 }
