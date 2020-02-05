@@ -17,25 +17,20 @@ size_t szParmDataBytes;			// Byte size of context information
 // *********************************************************************
 namespace
 {
-const int NUM_THREADS = 24;
+  const int NUM_THREADS = 24;
   const size_t NUM_ELEMENTS = 1.e5;
   const size_t MAX_LOOP_IDX = 1.e4;
   const size_t LOCAL_WORK_SIZE = 256;
 
-  void DotProductHost2(const float* pfData1, const float* pfData2, float* pfResult, int iMin, int iMax)
+  void DotProductHost2(const float* a, const float* b, float* c, int iMin, int iMax)
   {
-    int i, k;
-    for (i = iMin; i < iMax; i++)
+    for (int i = iMin; i < iMax; i++)
     {
-      pfResult[i] = 0.0f;
-      for (k = 0; k < 4; k++)
-      {
-        pfResult[i] += pfData1[4 * i + k] * pfData2[4 * i + k];
-      }
-
+      c[i] = 0.0f;
       for (int ind = 0; ind < MAX_LOOP_IDX; ind++)
       {
-        pfResult[i] += sin(ind * pfData1[ind % (NUM_ELEMENTS)]);
+        int k = (4 * i + ind) % NUM_ELEMENTS;
+        c[i] += sin(k * a[k]) * cos(k * b[k]);
       }
 
     }
