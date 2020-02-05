@@ -6,10 +6,10 @@
 #include <oclUtils.h>
 #include <shrQATest.h>
 
-#include "dotProductCalculator.h"
+#include "heavyCalculator.h"
 #include "timer.h"
 
-#include "DotProduct.cl"
+#include "heavyCalculator.cl"
 #include <future>
 
 size_t szParmDataBytes;			// Byte size of context information
@@ -18,11 +18,11 @@ size_t szParmDataBytes;			// Byte size of context information
 namespace
 {
   const int NUM_THREADS = 24;
-  const size_t NUM_ELEMENTS = 1.e5;
-  const size_t MAX_LOOP_IDX = 1.e4;
+  const size_t NUM_ELEMENTS = size_t(1.e4);
+  const size_t MAX_LOOP_IDX = size_t(1.e4);
   const size_t LOCAL_WORK_SIZE = 256;
 
-  void DotProductHost2(const float* a, const float* b, float* c, int iMin, int iMax)
+  void HeavyCalculationCPU(const float* a, const float* b, float* c, int iMin, int iMax)
   {
     for (int i = iMin; i < iMax; i++)
     {
@@ -58,13 +58,13 @@ namespace
     return result;
   
   }
-  void DotProductHost(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
+  void HeavyCalculation(const float* pfData1, const float* pfData2, float* pfResult, int iNumElements)
   {
     auto levels = getLevels(iNumElements, NUM_THREADS);
     std::vector<std::future<void>> futures;
     for (int i = 0; i < levels.size() - 1; i++)
     {
-      auto future = std::async(std::launch::async, DotProductHost2, pfData1, pfData2, pfResult, levels[i], levels[i+1]);
+      auto future = std::async(std::launch::async, HeavyCalculationCPU, pfData1, pfData2, pfResult, levels[i], levels[i+1]);
       futures.push_back(std::move(future));
     }
 
@@ -117,11 +117,11 @@ namespace
     Data(size_t size) : 
       sourceA(size),
       sourceB(size),
-      dotProductResults(size)
+      heavyCalculationResults(size)
     {}
     std::vector<cl_float4> sourceA;
     std::vector<cl_float4> sourceB;
-    std::vector<cl_float> dotProductResults;
+    std::vector<cl_float> heavyCalculationResults;
   };
 
   cl_context createGPUContext(cl_device_id targetDevice)
@@ -144,8 +144,8 @@ namespace
     auto timer = Timer("Build program");
 
     std::cout << "Creating program" << std::endl;
-    size_t programSize = strlen(CL_PROGRAM_DOT_PRODUCT);			// Byte size of kernel code
-    gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_DOT_PRODUCT, &programSize, nullptr);
+    size_t programSize = strlen(CL_PROGRAM_HEAVY_CALCULATION);			// Byte size of kernel code
+    gpuProgram = clCreateProgramWithSource(gpuContext, 1, &CL_PROGRAM_HEAVY_CALCULATION, &programSize, nullptr);
     const char* COMPILATION_FLAGS = "-cl-fast-relaxed-math";
     std::cout << "Building program" << std::endl;
     auto feedback = clBuildProgram(gpuProgram, 0, nullptr, nullptr, nullptr, nullptr);
@@ -158,11 +158,11 @@ namespace
     return true;
   }
 
-  DotProductCalculator::Buffers createBuffers(cl_context gpuContext, size_t globalWorkSize)
+  HeavyCalculator::Buffers createBuffers(cl_context gpuContext, size_t globalWorkSize)
   {
     auto timer = Timer("Create buffers");
 
-    DotProductCalculator::Buffers buffers;
+    HeavyCalculator::Buffers buffers;
     buffers.sourceABuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
     buffers.sourceBBuffer = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY, sizeof(cl_float4) * globalWorkSize, nullptr, nullptr);
     buffers.dstBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY, sizeof(cl_float) * globalWorkSize, nullptr, nullptr);
@@ -170,13 +170,13 @@ namespace
     return buffers;
   }
 
-  cl_kernel createKernel(cl_program gpuProgram, DotProductCalculator::Buffers buffers, size_t numElements)
+  cl_kernel createKernel(cl_program gpuProgram, HeavyCalculator::Buffers buffers, size_t numElements)
   {
     auto timer = Timer("Create kernel");
 
     // Create the kernel
-    std::cout << "Creating Kernel (DotProduct)..." << std::endl;
-    auto kernel = clCreateKernel(gpuProgram, "DotProduct", nullptr);
+    std::cout << "Creating Kernel ..." << std::endl;
+    auto kernel = clCreateKernel(gpuProgram, "HeavyCalculation", nullptr);
 
     // Set the Argument values
     clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)& buffers.sourceABuffer);
@@ -190,7 +190,7 @@ namespace
   cl_command_queue createCommandQueue(
     cl_context gpuContext,
     cl_device_id targetDevice,
-    DotProductCalculator::Buffers buffers,
+    HeavyCalculator::Buffers buffers,
     size_t globalWorkSize,
     const Data& data)
   {
@@ -209,10 +209,10 @@ namespace
   void launchKernelAndRun(
     cl_command_queue commandQueue,
     cl_kernel kernel,
-    DotProductCalculator::Buffers buffers,
+    HeavyCalculator::Buffers buffers,
     size_t globalWorkSize,
     size_t localWorkSize,
-    std::vector<cl_float>& dotProductResults)
+    std::vector<cl_float>& heavyCalculationResults)
   {
     {
       auto timer = Timer("Run calculation and read back results");
@@ -221,31 +221,31 @@ namespace
 
       // Read back results and check accumulated errors
       clEnqueueReadBuffer(commandQueue, buffers.dstBuffer, CL_TRUE, 0,
-        sizeof(cl_float) * globalWorkSize, dotProductResults.data(), 0, nullptr, nullptr);
+        sizeof(cl_float) * globalWorkSize, heavyCalculationResults.data(), 0, nullptr, nullptr);
     }
   }
 
   void validateCalculation(const Data& data, size_t numElements)
   {
     // Compute and compare results for golden-host and report errors and pass/fail
-    std::vector<cl_float> dotProductResultsValidation(numElements);
+    std::vector<cl_float> heavyCalculationResultsValidation(numElements);
 
 
     {
       auto timer = Timer("Calculation on CPU");
-      DotProductHost((const float*)data.sourceA.data(), (const float*)data.sourceB.data(),
-        (float*)dotProductResultsValidation.data(), (int)numElements);
+      HeavyCalculation((const float*)data.sourceA.data(), (const float*)data.sourceB.data(),
+        (float*)heavyCalculationResultsValidation.data(), (int)numElements);
     }
 
-    shrBOOL bMatch = shrComparefet((const float*)dotProductResultsValidation.data(), 
-      (const float*)data.dotProductResults.data(), (unsigned int)numElements, 0.0f, 0);
+    shrBOOL bMatch = shrComparefet((const float*)heavyCalculationResultsValidation.data(), 
+      (const float*)data.heavyCalculationResults.data(), (unsigned int)numElements, 0.0f, 0);
     std::cout << std::boolalpha;
     std::cout << "COMPARING STATUS : " << bMatch << std::endl;
   }
 }
 
 
-void DotProductCalculator::run()
+void HeavyCalculator::run()
 {
   const size_t GLOBAL_WORK_SIZE = shrRoundUp((int)LOCAL_WORK_SIZE, NUM_ELEMENTS);  // rounded up to the nearest multiple of the LocalWorkSize
 
@@ -270,13 +270,13 @@ void DotProductCalculator::run()
   commandQueue_ = createCommandQueue(gpuContext_, targetDevice, buffers_, GLOBAL_WORK_SIZE, data);
 
   launchKernelAndRun(commandQueue_, kernel_, buffers_,
-    GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE, data.dotProductResults);
+    GLOBAL_WORK_SIZE, LOCAL_WORK_SIZE, data.heavyCalculationResults);
 
   validateCalculation(data, NUM_ELEMENTS);
 
 }
 
-DotProductCalculator::~DotProductCalculator()
+HeavyCalculator::~HeavyCalculator()
 {
   if (buffers_.sourceABuffer) clReleaseMemObject(buffers_.sourceABuffer);
   if (buffers_.sourceBBuffer) clReleaseMemObject(buffers_.sourceBBuffer);
@@ -291,7 +291,7 @@ DotProductCalculator::~DotProductCalculator()
 // *********************************************************************
 int main(int argc, char** argv)
 {
-  DotProductCalculator dotProductCalculator;
-  dotProductCalculator.run();
+  HeavyCalculator heavyCalculator;
+  heavyCalculator.run();
   return 0;
 }

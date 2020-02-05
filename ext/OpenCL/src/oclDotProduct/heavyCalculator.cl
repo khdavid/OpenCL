@@ -1,5 +1,5 @@
-const char * CL_PROGRAM_DOT_PRODUCT = R"( 
- __kernel void DotProduct (__global float* a, __global float* b, __global float* c, int iNumElements)
+const char * CL_PROGRAM_HEAVY_CALCULATION = R"( 
+ __kernel void HeavyCalculation (__global float* a, __global float* b, __global float* c, int iNumElements)
 {
     int i = get_global_id(0);
 

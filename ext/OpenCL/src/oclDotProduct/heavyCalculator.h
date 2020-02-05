@@ -1,9 +1,9 @@
 #pragma once
-class DotProductCalculator
+class HeavyCalculator
 {
 public:
   void run();
-  ~DotProductCalculator();
+  ~HeavyCalculator();
   struct Buffers
   {
     cl_mem sourceABuffer = 0;
